@@ -32,14 +32,12 @@ parameters:
     value: 1.0
   void_decay_power:
     value: 2.0
-  void_decay_softplus_beta:
-    value: 10.0
+  void_decay_softplus_k:
+    value: 5.0
   transition_steepness:
     value: 0.5           # Pente douce ("Toboggan" validé)
   radial_stretch:
     value: 5.0           # Aligné sur le run de référence
-  transverse_inertia:
-    value: 0.05          # Aligné sur le run de référence
 
   # Soft funnel parameters
   attractor_gamma:
@@ -50,8 +48,6 @@ parameters:
     value: euclidean
     
   # Uniform controls
-  void_mode:
-    value: distance
 
   # Training budget
   num_sequences:

@@ -13,13 +13,13 @@ import datetime
 import sys
 from pathlib import Path
 
-import matplotlib.colors as mcolors
-import matplotlib.patches as patches
-import matplotlib.pyplot as plt
-import numpy as np
-import seaborn as sns
-import torch
-from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.colors as mcolors  # pyright: ignore[reportMissingImports]
+import matplotlib.patches as patches  # pyright: ignore[reportMissingImports]
+import matplotlib.pyplot as plt  # pyright: ignore[reportMissingImports]  # pyright: ignore[reportMissingImports]
+import numpy as np  # pyright: ignore[reportMissingImports]
+import seaborn as sns  # pyright: ignore[reportMissingModuleSource]
+import torch  # pyright: ignore[reportMissingImports]
+from mpl_toolkits.mplot3d import Axes3D  # pyright: ignore[reportMissingImports]
 
 try:
     import wandb
@@ -999,7 +999,6 @@ def run_analysis(
     support_max_samples: int = 600,
     grid_bounds: float = 4.0,
     force_attractor_metric: Optional[str] = None,
-    force_void_mode: Optional[str] = None,
 ) -> dict[str, float]:
     model_path = Path(model_path)
     output_dir = Path(output_dir)
@@ -1010,9 +1009,6 @@ def run_analysis(
         model.attractor_metric = force_attractor_metric
         if model.attractor_metric == "mahalanobis" or model.attractor_use_det:
             model._update_attractor_precisions(model.M_tens)
-        model._refresh_metric_hooks()
-    if force_void_mode is not None:
-        model.void_mode = force_void_mode
         model._refresh_metric_hooks()
 
     support_images_cpu: Optional[torch.Tensor] = None
@@ -1029,7 +1025,7 @@ def run_analysis(
         model,
         centroids,
         out_dir,
-        grid_bounds=grid_bounds * 2.0,
+        grid_bounds=grid_bounds * 10.0,
         tag_suffix="_wide",
         file_suffix="_wide",
         wandb_run=wandb_run,
@@ -1117,13 +1113,6 @@ def main() -> None:
         help="Override attractor_metric after loading the model.",
     )
     parser.add_argument(
-        "--force_void_mode",
-        type=str,
-        choices=["distance", "density", "hybrid"],
-        default=None,
-        help="Override void_mode after loading the model.",
-    )
-    parser.add_argument(
         "--analysis_bounds",
         type=float,
         default=4.0,
@@ -1155,7 +1144,6 @@ def main() -> None:
         random_pairs=args.random_pairs,
         grid_bounds=args.analysis_bounds,
         force_attractor_metric=args.force_attractor_metric,
-        force_void_mode=args.force_void_mode,
     )
     if wandb_run is not None and wandb is not None:
         wandb_run.finish()

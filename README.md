@@ -23,13 +23,11 @@ python scripts/run_pythae_rhvae_baseline.py \
   --void_decay_type invquad \
   --void_decay_scale 1.0 \
   --void_decay_power 2.0 \
-  --void_decay_softplus_beta 10.0 \
+  --void_decay_softplus_k 5.0 \
   --transition_steepness 5.0 \
   --radial_stretch 5.0 \
-  --transverse_inertia 0.01 \
   --attractor_gamma 5.0 \
   --attractor_k_nearest 10 \
-  --void_mode distance \
   --num_sequences 200 \
   --max_frames 3000 \
   --epochs 100 \

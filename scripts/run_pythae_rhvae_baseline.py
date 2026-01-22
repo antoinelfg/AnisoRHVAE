@@ -31,19 +31,19 @@ if isinstance(_rlvae_root, Path) and _rlvae_root.exists():
     _maybe_add_sys_path(_rlvae_root / "src" / "lib" / "src")
     _maybe_add_sys_path(_rlvae_root / "src")
 
-import torch
-import numpy as np
-import matplotlib.colors as mcolors
-import matplotlib.patches as patches
-import matplotlib.pyplot as plt
+import torch  # pyright: ignore[reportMissingImports]  # pyright: ignore[reportMissingImports]
+import numpy as np  # pyright: ignore[reportMissingImports]  # pyright: ignore[reportMissingImports]
+import matplotlib.colors as mcolors  # pyright: ignore[reportMissingImports]
+import matplotlib.patches as patches  # pyright: ignore[reportMissingImports]
+import matplotlib.pyplot as plt  # pyright: ignore[reportMissingImports]
 from datetime import datetime
 
 # Import pythae RHVAE
-from pythae.models.rhvae import RHVAE, RHVAEConfig
+from pythae.models.rhvae import RHVAE, RHVAEConfig  # pyright: ignore[reportMissingImports]
 from src.models.rhvae_geometry import GeometryRHVAE, GeometryRHVAEConfig
 from scripts.analyze_metric_full import run_analysis
-from torch.utils.data import DataLoader, TensorDataset
-from tqdm import tqdm
+from torch.utils.data import DataLoader, TensorDataset  # pyright: ignore[reportMissingImports]
+from tqdm import tqdm  # pyright: ignore[reportMissingModuleSource]
 
 # Import our data module
 from src.data.ellipse_datamodule import EllipseSequenceDataModule
@@ -847,13 +847,9 @@ def main():
     )
     parser.add_argument('--void_decay_scale', type=float, default=1.0)
     parser.add_argument('--void_decay_power', type=float, default=2.0)
-    parser.add_argument('--void_decay_softplus_beta', type=float, default=10.0)
+    parser.add_argument('--void_decay_softplus_k', type=float, default=5.0)
     parser.add_argument('--radial_stretch', type=float, default=10.0)
     parser.add_argument('--transition_steepness', type=float, default=5.0)
-    parser.add_argument('--transverse_inertia', type=float, default=0.01)
-    parser.add_argument('--void_mode', type=str, default='distance', choices=['distance', 'density', 'hybrid'])
-    parser.add_argument('--density_threshold', type=float, default=-1.0)
-    parser.add_argument('--density_sharpness', type=float, default=5.0)
     parser.add_argument('--kernel_type', type=str, default='isotropic', choices=['isotropic', 'mahalanobis'])
     parser.add_argument('--precision_jitter', type=float, default=1e-6)
     parser.add_argument('--atom_power', type=float, default=1.0)
@@ -909,7 +905,6 @@ def main():
                 f"geom_{args.kernel_type}"
                 f"_ap{args.atom_power}_kp{args.kernel_power}"
                 f"_attr{int(use_attractor)}"
-                f"_void{args.void_mode}"
                 f"_ns{args.num_sequences}"
                 f"_mf{args.max_frames if args.max_frames is not None else 'all'}"
                 f"_seed{args.seed}"
@@ -943,13 +938,9 @@ def main():
                 "void_decay_type": args.void_decay_type,
                 "void_decay_scale": args.void_decay_scale,
                 "void_decay_power": args.void_decay_power,
-                "void_decay_softplus_beta": args.void_decay_softplus_beta,
+                "void_decay_softplus_k": args.void_decay_softplus_k,
                 "radial_stretch": args.radial_stretch,
                 "transition_steepness": args.transition_steepness,
-                "transverse_inertia": args.transverse_inertia,
-                "void_mode": args.void_mode,
-                "density_threshold": args.density_threshold,
-                "density_sharpness": args.density_sharpness,
                 "kernel_type": args.kernel_type,
                 "precision_jitter": args.precision_jitter,
                 "atom_power": args.atom_power,
@@ -971,7 +962,7 @@ def main():
     
     # Load ellipse data - same config as main experiments
     print("[RHVAE BASELINE] Loading ellipse data...")
-    from omegaconf import OmegaConf
+    from omegaconf import OmegaConf  # pyright: ignore[reportMissingImports]
     data_config = OmegaConf.create({
         'num_sequences': args.num_sequences,
         'seq_len': 8,
@@ -1047,7 +1038,7 @@ def main():
             void_decay_type=args.void_decay_type,
             void_decay_scale=args.void_decay_scale,
             void_decay_power=args.void_decay_power,
-            void_decay_softplus_beta=args.void_decay_softplus_beta,
+            void_decay_softplus_k=args.void_decay_softplus_k,
             radial_stretch=args.radial_stretch,
             transition_steepness=args.transition_steepness,
             kernel_type=args.kernel_type,
@@ -1055,10 +1046,6 @@ def main():
             atom_power=args.atom_power,
             kernel_power=args.kernel_power,
             atom_norm=args.atom_norm,
-            transverse_inertia=args.transverse_inertia,
-            void_mode=args.void_mode,
-            density_threshold=args.density_threshold,
-            density_sharpness=args.density_sharpness,
             attractor_smoothness=args.attractor_smoothness,
             attractor_metric=args.attractor_metric,
             attractor_gamma=args.attractor_gamma,
@@ -1073,7 +1060,6 @@ def main():
         f"latent_dim={args.latent_dim}, n_centroids={args.n_centroids}, "
         f"T={args.temperature}, variant={args.rhvae_variant}, "
         f"kernel={args.kernel_type}, attractor={use_attractor}, "
-        f"void_mode={args.void_mode}"
     )
 
     # Create model

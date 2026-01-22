@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import math
 import sys
 
 import torch
+import torch.nn.functional as F
 
 
 def _load_pythae():
@@ -55,30 +57,70 @@ RHVAE, RHVAEConfig, create_inverse_metric, create_metric = _load_pythae()
 
 @dataclass
 class GeometryRHVAEConfig(RHVAEConfig):
+    """Geometry-aware RHVAE configuration."""
+
     use_attractor: bool = False
-    attractor_smoothness: str = "hard"
+    attractor_smoothness: str = "soft"
     attractor_metric: str = "euclidean"
     attractor_gamma: float = 5.0
     attractor_k_nearest: int = 5
     attractor_use_det: bool = False
     attractor_bias_energy: float = 15.0
+
     void_threshold: float = 1.5
     void_weight_threshold: float = -1.0
     void_decay_type: str = "invquad"
     void_decay_scale: float = 1.0
     void_decay_power: float = 2.0
-    void_decay_softplus_beta: float = 10.0
-    radial_stretch: float = 10.0
+    void_decay_softplus_k: float = 5.0
+    radial_stretch: float = 10.0  # beta
     transition_steepness: float = 5.0
-    transverse_inertia: float = 0.01
-    void_mode: str = "distance"
-    density_threshold: float = -1.0
-    density_sharpness: float = 5.0
+    target_anisotropy: float | None = None
+
     kernel_type: str = "isotropic"
     precision_jitter: float = 1e-6
     atom_power: float = 1.0
     kernel_power: float = 1.0
     atom_norm: str = "none"
+
+    @classmethod
+    def from_physics(
+        cls,
+        *,
+        temperature: float,
+        regularization: float,
+        target_anisotropy: float,
+        confidence_threshold: float,
+        **kwargs,
+    ) -> "GeometryRHVAEConfig":
+        if temperature <= 0:
+            raise ValueError("temperature must be > 0")
+        if confidence_threshold <= 0 or confidence_threshold >= 1:
+            raise ValueError("confidence_threshold must be in (0, 1)")
+        if target_anisotropy <= 1:
+            raise ValueError("target_anisotropy must be > 1")
+
+        temperature = float(temperature)
+        regularization = float(regularization)
+        target_anisotropy = float(target_anisotropy)
+        confidence_threshold = float(confidence_threshold)
+
+        r0 = temperature * math.sqrt(-math.log(confidence_threshold))
+        radial_stretch = regularization * (target_anisotropy - 1.0)
+
+        params = {
+            "temperature": temperature,
+            "regularization": regularization,
+            "radial_stretch": radial_stretch,
+            "void_weight_threshold": confidence_threshold,
+            "void_threshold": r0 / temperature,
+            "target_anisotropy": target_anisotropy,
+            "void_decay_scale": 1.0,
+            "void_decay_power": 2.0,
+            "void_decay_softplus_k": 5.0,
+        }
+        params.update(kwargs)
+        return cls(**params)
 
 
 class GeometryRHVAE(RHVAE):
@@ -87,7 +129,6 @@ class GeometryRHVAE(RHVAE):
     def __init__(self, model_config: GeometryRHVAEConfig, **kwargs):
         super().__init__(model_config, **kwargs)
         self.use_attractor = bool(model_config.use_attractor)
-        self.attractor_smoothness = str(model_config.attractor_smoothness).lower()
         self.attractor_metric = str(model_config.attractor_metric).lower()
         self.attractor_gamma = float(model_config.attractor_gamma)
         self.attractor_k_nearest = int(model_config.attractor_k_nearest)
@@ -98,18 +139,22 @@ class GeometryRHVAE(RHVAE):
         self.void_decay_type = str(model_config.void_decay_type).lower()
         self.void_decay_scale = float(model_config.void_decay_scale)
         self.void_decay_power = float(model_config.void_decay_power)
-        self.void_decay_softplus_beta = float(model_config.void_decay_softplus_beta)
+        self.void_decay_softplus_k = float(model_config.void_decay_softplus_k)
         self.radial_stretch = float(model_config.radial_stretch)
         self.transition_steepness = float(model_config.transition_steepness)
-        self.transverse_inertia = float(model_config.transverse_inertia)
-        self.void_mode = str(model_config.void_mode).lower()
-        self.density_threshold = float(model_config.density_threshold)
-        self.density_sharpness = float(model_config.density_sharpness)
+        self.target_anisotropy = (
+            None
+            if model_config.target_anisotropy is None
+            else float(model_config.target_anisotropy)
+        )
         self.kernel_type = str(model_config.kernel_type).lower()
         self.precision_jitter = float(model_config.precision_jitter)
         self.atom_power = float(model_config.atom_power)
         self.kernel_power = float(model_config.kernel_power)
         self.atom_norm = str(model_config.atom_norm).lower()
+        self.attractor_smoothness = str(
+            getattr(model_config, "attractor_smoothness", "soft")
+        ).lower()
         if self.attractor_smoothness not in {"hard", "soft"}:
             raise ValueError("attractor_smoothness must be 'hard' or 'soft'")
         if self.attractor_metric not in {"euclidean", "mahalanobis"}:
@@ -122,12 +167,8 @@ class GeometryRHVAE(RHVAE):
             self.atom_norm = "trace"
         if self.atom_norm not in {"none", "trace", "det"}:
             raise ValueError("atom_norm must be 'none', 'trace', or 'det'")
-        if self.void_mode not in {"distance", "density", "hybrid"}:
-            raise ValueError("void_mode must be 'distance', 'density', or 'hybrid'")
         if self.void_decay_type not in {"none", "invquad"}:
             raise ValueError("void_decay_type must be 'none' or 'invquad'")
-        if self.transverse_inertia <= 0:
-            raise ValueError("transverse_inertia must be > 0")
         if self.void_weight_threshold > 0 and self.void_weight_threshold >= 1:
             raise ValueError("void_weight_threshold must be in (0, 1)")
         if self.void_decay_type != "none":
@@ -135,8 +176,8 @@ class GeometryRHVAE(RHVAE):
                 raise ValueError("void_decay_scale must be > 0")
             if self.void_decay_power <= 0:
                 raise ValueError("void_decay_power must be > 0")
-            if self.void_decay_softplus_beta <= 0:
-                raise ValueError("void_decay_softplus_beta must be > 0")
+            if self.void_decay_softplus_k <= 0:
+                raise ValueError("void_decay_softplus_k must be > 0")
         self.P_tens = torch.empty(0, self.latent_dim, self.latent_dim)
         if self.attractor_metric == "mahalanobis" or self.attractor_use_det:
             self._update_attractor_precisions(self.M_tens)
@@ -178,20 +219,18 @@ class GeometryRHVAE(RHVAE):
         cov, _ = self._prepare_atoms(atoms.to(device))
         return self._precision_from_cov(cov)
 
-    def _compute_base_inverse_metric(
-        self, z: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _compute_base_inverse_metric(self, z: torch.Tensor) -> torch.Tensor:
         centroids = self.centroids_tens.to(z.device)
         atoms = self.M_tens.to(z.device)
         cov, prec = self._prepare_atoms(atoms)
         diff = centroids.unsqueeze(0) - z.unsqueeze(1)
         dists_sq = self._kernel_dists(diff, prec)
-        weights = torch.exp(-dists_sq / (self.temperature.to(z.device) ** 2))
-        weight_sum = weights.sum(dim=1)
+        temperature = self.temperature.to(device=z.device, dtype=z.dtype)
+        weights = torch.exp(-dists_sq / (temperature**2))
         base = torch.einsum("bk,kij->bij", weights, cov)
         eye = torch.eye(self.latent_dim, device=z.device, dtype=z.dtype).unsqueeze(0)
-        base = base + self.lbd.to(z.device) * eye
-        return base, dists_sq, weight_sum
+        base = base + self.lbd.to(device=z.device, dtype=z.dtype) * eye
+        return base
 
     def _compute_soft_attractor_weights(
         self,
@@ -210,9 +249,9 @@ class GeometryRHVAE(RHVAE):
             if precisions is None:
                 raise ValueError("precision matrix required for mahalanobis attractor")
             tmp = torch.einsum("bkd,kde->bke", diff, precisions)
-            dists_sq = (tmp * diff).sum(dim=-1)
+            dists_sq = torch.einsum("bke,bke->bk", tmp, diff)
         else:
-            dists_sq = (diff ** 2).sum(dim=-1)
+            dists_sq = torch.einsum("bkd,bkd->bk", diff, diff)
 
         energy = self.attractor_gamma * dists_sq
         if self.attractor_use_det:
@@ -232,51 +271,65 @@ class GeometryRHVAE(RHVAE):
             weights = pruned / denom
         return weights
 
+    def _attractor_distances_sq(
+        self, diff: torch.Tensor, precisions: torch.Tensor | None
+    ) -> torch.Tensor:
+        if self.attractor_metric == "mahalanobis":
+            if precisions is None:
+                raise ValueError("precision matrix required for mahalanobis attractor")
+            tmp = torch.einsum("bkd,kde->bke", diff, precisions)
+            return torch.einsum("bke,bke->bk", tmp, diff)
+        return torch.einsum("bkd,bkd->bk", diff, diff)
+
+    def _min_euclidean_distance(self, diff: torch.Tensor) -> torch.Tensor:
+        dists_sq = torch.einsum("bkd,bkd->bk", diff, diff)
+        min_dists_sq = dists_sq.min(dim=1).values
+        return torch.sqrt(min_dists_sq + 1e-10)
+
+    def _compute_void_inverse_metric(
+        self,
+        z: torch.Tensor,
+        centroids: torch.Tensor,
+        precisions: torch.Tensor | None,
+    ) -> torch.Tensor:
+        diff = centroids.unsqueeze(0) - z.unsqueeze(1)
+        if self.attractor_smoothness == "hard":
+            dists_sq = self._attractor_distances_sq(diff, precisions)
+            nearest_idx = dists_sq.min(dim=1).indices
+            direction = centroids[nearest_idx] - z
+            denom = torch.linalg.norm(direction, dim=1, keepdim=True).clamp_min(1e-8)
+            u_hat = direction / denom
+            return self._void_from_direction(u_hat)
+
+        weights = self._compute_soft_attractor_weights(z, centroids, precisions)
+        denom = torch.linalg.norm(diff, dim=-1, keepdim=True).clamp_min(1e-8)
+        u_hat = diff / denom
+        u_hat_flat = u_hat.reshape(-1, u_hat.shape[-1])
+        void = self._void_from_direction(u_hat_flat)
+        void = void.view(z.shape[0], centroids.shape[0], z.shape[1], z.shape[1])
+        return torch.einsum("bk,bkij->bij", weights, void)
+
     def _compute_inverse_metric_at_z(self, z: torch.Tensor) -> torch.Tensor:
-        base, dists_sq, weight_sum = self._compute_base_inverse_metric(z)
+        base = self._compute_base_inverse_metric(z)
         base = self._stabilize_metric(base)
         if not self.use_attractor:
             return base
 
         centroids = self.centroids_tens.to(z.device)
         diff_eucl = centroids.unsqueeze(0) - z.unsqueeze(1)
-        dists_sq_eucl = (diff_eucl ** 2).sum(dim=-1)
-        min_dists_eucl = torch.sqrt(dists_sq_eucl.min(dim=1).values + 1e-10)
+        min_dists_eucl = self._min_euclidean_distance(diff_eucl)
+
         precisions = None
         if self.attractor_metric == "mahalanobis" or self.attractor_use_det:
             precisions = self._get_attractor_precisions(None, z.device)
 
-        if self.attractor_smoothness == "hard":
-            diff = centroids.unsqueeze(0) - z.unsqueeze(1)
-            if self.attractor_metric == "mahalanobis":
-                tmp = torch.einsum("bkd,kde->bke", diff, precisions)
-                attractor_dists_sq = (tmp * diff).sum(dim=-1)
-            else:
-                attractor_dists_sq = (diff ** 2).sum(dim=-1)
-            _, nearest_idx = attractor_dists_sq.min(dim=1)
-            targets = centroids[nearest_idx]
-            direction = targets - z
-            u_hat = direction / (torch.norm(direction, dim=1, keepdim=True) + 1e-8)
-            radial = self._radial_from_direction(u_hat)
-        else:
-            weights = self._compute_soft_attractor_weights(z, centroids, precisions)
-            diff = centroids.unsqueeze(0) - z.unsqueeze(1)
-            if self.attractor_metric == "mahalanobis":
-                tmp = torch.einsum("bkd,kde->bke", diff, precisions)
-                attractor_dists_sq = (tmp * diff).sum(dim=-1)
-            else:
-                attractor_dists_sq = (diff ** 2).sum(dim=-1)
-            u_hat = diff / (torch.norm(diff, dim=-1, keepdim=True) + 1e-8)
-            u_hat_flat = u_hat.reshape(-1, u_hat.shape[-1])
-            radial = self._radial_from_direction(u_hat_flat)
-            radial = radial.view(z.shape[0], centroids.shape[0], z.shape[1], z.shape[1])
-            radial = torch.einsum("bk,bkij->bij", weights, radial)
+        void = self._compute_void_inverse_metric(z, centroids, precisions)
+        decay = self._compute_void_decay(min_dists_eucl).view(-1, 1, 1)
+        void = decay * void
 
-        # Use Euclidean distance for alpha to keep void_threshold scale consistent.
-        alpha = self._compute_alpha(min_dists_eucl, weight_sum)
-        alpha = alpha.view(-1, 1, 1)
-        blended = (1.0 - alpha) * base + alpha * radial
-        return self._stabilize_metric(blended)
+        alpha = self._compute_alpha(min_dists_eucl).view(-1, 1, 1)
+        blended = (1.0 - alpha) * base + alpha * void
+        return blended
 
     def _compute_metric_at_z(self, z: torch.Tensor) -> torch.Tensor:
         g_inv = self._compute_inverse_metric_at_z(z)
@@ -284,21 +337,19 @@ class GeometryRHVAE(RHVAE):
 
     def _kernel_dists(self, diff: torch.Tensor, prec: torch.Tensor | None) -> torch.Tensor:
         if self.kernel_type == "isotropic":
-            return (diff ** 2).sum(dim=-1)
+            return torch.einsum("bkd,bkd->bk", diff, diff)
         if prec is None:
             raise ValueError("precision matrix required for mahalanobis kernel")
-        # diff shape [B, K, D], precision shape [K, D, D]
         tmp = torch.einsum("bkd,kde->bke", diff, prec)
-        return (tmp * diff).sum(dim=-1)
+        return torch.einsum("bke,bke->bk", tmp, diff)
 
     def _kernel_dists_batch(self, diff: torch.Tensor, prec: torch.Tensor | None) -> torch.Tensor:
         if self.kernel_type == "isotropic":
-            return (diff ** 2).sum(dim=-1)
+            return torch.einsum("ijd,ijd->ij", diff, diff)
         if prec is None:
             raise ValueError("precision matrix required for mahalanobis kernel")
-        # diff shape [B, B, D], precision shape [B, D, D] aligned to centroid index
         tmp = torch.einsum("ijd,jde->ije", diff, prec)
-        return (tmp * diff).sum(dim=-1)
+        return torch.einsum("ije,ije->ij", tmp, diff)
 
     def _prepare_atoms(self, atoms: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor | None]:
         cov = 0.5 * (atoms + atoms.transpose(-1, -2))
@@ -364,112 +415,67 @@ class GeometryRHVAE(RHVAE):
         cov, prec = self._prepare_atoms(M)
         diff = mu.unsqueeze(0) - z.unsqueeze(1)
         dists_sq = self._kernel_dists_batch(diff, prec)
-        weights = torch.exp(-dists_sq / (self.temperature**2))
-        weight_sum = weights.sum(dim=1)
-        base = (
-            cov.unsqueeze(0) * weights.unsqueeze(-1).unsqueeze(-1)
-        ).sum(dim=1) + self.lbd * torch.eye(self.latent_dim).to(z.device)
+        temperature = self.temperature.to(device=z.device, dtype=z.dtype)
+        weights = torch.exp(-dists_sq / (temperature**2))
+        base = torch.einsum("bj,jkl->bkl", weights, cov)
+        base = base + self.lbd.to(device=z.device, dtype=z.dtype) * torch.eye(
+            self.latent_dim, device=z.device, dtype=z.dtype
+        )
         base = self._stabilize_metric(base)
         if not self.use_attractor:
             return base
+
         precisions = None
         if self.attractor_metric == "mahalanobis" or self.attractor_use_det:
             precisions = self._precision_from_cov(cov)
 
         centroids = mu
         diff_eucl = centroids.unsqueeze(0) - z.unsqueeze(1)
-        dists_sq_eucl = (diff_eucl ** 2).sum(dim=-1)
-        min_dists_eucl = torch.sqrt(dists_sq_eucl.min(dim=1).values + 1e-10)
-        if self.attractor_smoothness == "hard":
-            diff = centroids.unsqueeze(0) - z.unsqueeze(1)
-            if self.attractor_metric == "mahalanobis":
-                tmp = torch.einsum("bkd,kde->bke", diff, precisions)
-                attractor_dists_sq = (tmp * diff).sum(dim=-1)
-            else:
-                attractor_dists_sq = (diff ** 2).sum(dim=-1)
-            _, nearest_idx = attractor_dists_sq.min(dim=1)
-            targets = centroids[nearest_idx]
-            direction = targets - z
-            u_hat = direction / (torch.norm(direction, dim=1, keepdim=True) + 1e-8)
-            radial = self._radial_from_direction(u_hat)
-        else:
-            weights = self._compute_soft_attractor_weights(z, centroids, precisions)
-            diff = centroids.unsqueeze(0) - z.unsqueeze(1)
-            if self.attractor_metric == "mahalanobis":
-                tmp = torch.einsum("bkd,kde->bke", diff, precisions)
-                attractor_dists_sq = (tmp * diff).sum(dim=-1)
-            else:
-                attractor_dists_sq = (diff ** 2).sum(dim=-1)
-            u_hat = diff / (torch.norm(diff, dim=-1, keepdim=True) + 1e-8)
-            u_hat_flat = u_hat.reshape(-1, u_hat.shape[-1])
-            radial = self._radial_from_direction(u_hat_flat)
-            radial = radial.view(z.shape[0], centroids.shape[0], z.shape[1], z.shape[1])
-            radial = torch.einsum("bk,bkij->bij", weights, radial)
-        # Use Euclidean distance for alpha to keep void_threshold scale consistent.
-        alpha = self._compute_alpha(min_dists_eucl, weight_sum).view(-1, 1, 1)
-        if self.void_decay_type != "none":
-            decay = self._compute_void_decay(min_dists_eucl).view(-1, 1, 1)
-            radial = radial * decay
-        blended = (1.0 - alpha) * base + alpha * radial
-        return self._stabilize_metric(blended)
+        min_dists_eucl = self._min_euclidean_distance(diff_eucl)
 
-    def _radial_from_direction(self, u_hat: torch.Tensor) -> torch.Tensor:
+        void = self._compute_void_inverse_metric(z, centroids, precisions)
+        decay = self._compute_void_decay(min_dists_eucl).view(-1, 1, 1)
+        void = decay * void
+
+        alpha = self._compute_alpha(min_dists_eucl).view(-1, 1, 1)
+        blended = (1.0 - alpha) * base + alpha * void
+        return blended
+
+    def _void_from_direction(self, u_hat: torch.Tensor) -> torch.Tensor:
         uu_t = torch.einsum("bi,bj->bij", u_hat, u_hat)
-        beta = float(self.radial_stretch)
-        epsilon = float(self.transverse_inertia)
-        if epsilon <= 0:
-            epsilon = self.precision_jitter if self.precision_jitter > 0 else 1e-8
-        d = u_hat.shape[1]
-        eye = torch.eye(d, device=u_hat.device, dtype=u_hat.dtype).unsqueeze(0)
-        radial = (beta - epsilon) * uu_t + epsilon * eye
-        radial = radial + self.lbd.to(u_hat.device) * eye
-        return radial
+        beta = torch.tensor(self.radial_stretch, device=u_hat.device, dtype=u_hat.dtype)
+        eye = torch.eye(u_hat.shape[1], device=u_hat.device, dtype=u_hat.dtype).unsqueeze(0)
+        return beta * uu_t + self.lbd.to(device=u_hat.device, dtype=u_hat.dtype) * eye
 
     def _compute_r0(self, min_dists: torch.Tensor) -> torch.Tensor:
+        temperature = self.temperature.to(device=min_dists.device, dtype=min_dists.dtype)
         if self.void_weight_threshold > 0:
             tau = torch.tensor(
                 self.void_weight_threshold,
                 device=min_dists.device,
                 dtype=min_dists.dtype,
             )
-            return self.temperature.to(min_dists.device).to(min_dists.dtype) * torch.sqrt(
-                -torch.log(tau)
-            )
-        return self.void_threshold * self.temperature.to(min_dists.device).to(min_dists.dtype)
+            return temperature * torch.sqrt(-torch.log(tau))
+        return self.void_threshold * temperature
 
     def _compute_void_decay(self, min_dists: torch.Tensor) -> torch.Tensor:
         if self.void_decay_type == "none":
             return torch.ones_like(min_dists)
         r0 = self._compute_r0(min_dists)
-        beta = torch.tensor(
-            self.void_decay_softplus_beta,
-            device=min_dists.device,
-            dtype=min_dists.dtype,
-        ).clamp_min(1e-12)
-        r_excess = torch.nn.functional.softplus(min_dists - r0, beta=beta.item())
+        delta = min_dists - r0
+        k = float(self.void_decay_softplus_k)
+        soft_delta = F.softplus(delta, beta=k)
         scale = torch.tensor(
             self.void_decay_scale, device=min_dists.device, dtype=min_dists.dtype
         ).clamp_min(1e-12)
         power = torch.tensor(
             self.void_decay_power, device=min_dists.device, dtype=min_dists.dtype
         ).clamp_min(1e-12)
-        return 1.0 / (1.0 + (r_excess / scale) ** power)
+        return 1.0 / (1.0 + torch.pow(soft_delta / scale, power))
 
-    def _compute_alpha(self, min_dists: torch.Tensor, weight_sum: torch.Tensor) -> torch.Tensor:
+    def _compute_alpha(self, min_dists: torch.Tensor) -> torch.Tensor:
         r0 = self._compute_r0(min_dists)
-        alpha_dist = torch.sigmoid((min_dists - r0) * self.transition_steepness)
-        if self.void_mode == "distance":
-            return alpha_dist
-
-        if self.density_threshold < 0:
-            threshold = weight_sum.detach().median()
-        else:
-            threshold = torch.tensor(self.density_threshold, device=weight_sum.device)
-        alpha_density = torch.sigmoid((threshold - weight_sum) * self.density_sharpness)
-
-        if self.void_mode == "density":
-            return alpha_density
-        return 1.0 - (1.0 - alpha_dist) * (1.0 - alpha_density)
+        return torch.sigmoid((min_dists - r0) * self.transition_steepness)
 
     def forward(self, inputs, **kwargs):
         x = inputs["data"]
