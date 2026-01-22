@@ -42,17 +42,14 @@ def _build_model(model_path: Path, device: torch.device) -> tuple[GeometryRHVAE,
     return model, centroids.to(device)
 
 
-def _compute_radial_inv(
+def _compute_radial_uu(
     model: GeometryRHVAE,
     z: torch.Tensor,
-    radial_stretch: float | None = None,
 ) -> torch.Tensor:
     centroids = model.centroids_tens.to(z.device)
     precisions = None
     if model.attractor_metric == "mahalanobis" or model.attractor_use_det:
         precisions = model._get_attractor_precisions(None, z.device)
-
-    beta = float(radial_stretch) if radial_stretch is not None else float(model.radial_stretch)
 
     if model.attractor_smoothness == "hard":
         diff = centroids.unsqueeze(0) - z.unsqueeze(1)
@@ -65,26 +62,15 @@ def _compute_radial_inv(
         targets = centroids[nearest_idx]
         direction = targets - z
         u_hat = direction / (torch.norm(direction, dim=1, keepdim=True) + 1e-8)
-        radial = _radial_from_direction(u_hat, beta, model)
-        return radial
+        return torch.einsum("bi,bj->bij", u_hat, u_hat)
 
     weights = model._compute_soft_attractor_weights(z, centroids, precisions)
     diff = centroids.unsqueeze(0) - z.unsqueeze(1)
     u_hat = diff / (torch.norm(diff, dim=-1, keepdim=True) + 1e-8)
     u_hat_flat = u_hat.reshape(-1, u_hat.shape[-1])
-    radial = _radial_from_direction(u_hat_flat, beta, model)
-    radial = radial.view(z.shape[0], centroids.shape[0], z.shape[1], z.shape[1])
-    radial = torch.einsum("bk,bkij->bij", weights, radial)
-    return radial
-
-
-def _radial_from_direction(
-    u_hat: torch.Tensor, beta: float, model: GeometryRHVAE
-) -> torch.Tensor:
-    uu_t = torch.einsum("bi,bj->bij", u_hat, u_hat)
-    d = u_hat.shape[1]
-    eye = torch.eye(d, device=u_hat.device, dtype=u_hat.dtype).unsqueeze(0)
-    return beta * uu_t + model.lbd.to(u_hat.device) * eye
+    uu_t = torch.einsum("bi,bj->bij", u_hat_flat, u_hat_flat)
+    uu_t = uu_t.view(z.shape[0], centroids.shape[0], z.shape[1], z.shape[1])
+    return torch.einsum("bk,bkij->bij", weights, uu_t)
 
 def _logdet_ginv(g_inv: torch.Tensor) -> torch.Tensor:
     _, logabsdet = torch.linalg.slogdet(g_inv)
@@ -203,14 +189,21 @@ def main() -> None:
             min_dists_eucl = torch.sqrt(
                 (diff_eucl ** 2).sum(dim=-1).min(dim=1).values + 1e-10
             )
-            radial = _compute_radial_inv(
+            radial_uu_t = _compute_radial_uu(
                 model,
                 z_det,
-                radial_stretch=args.override_radial_stretch,
             )
             decay = model._compute_void_decay(min_dists_eucl).view(-1, 1, 1)
-            radial = decay * radial
-            logdet_ginv_void = _logdet_ginv(radial)
+            beta = (
+                float(args.override_radial_stretch)
+                if args.override_radial_stretch is not None
+                else float(model.radial_stretch)
+            )
+            term_long = beta * radial_uu_t
+            eye = torch.eye(model.latent_dim, device=z_det.device, dtype=z_det.dtype).unsqueeze(0)
+            term_trans = model.lbd.to(device=z_det.device, dtype=z_det.dtype) * decay * eye
+            void = term_long + term_trans
+            logdet_ginv_void = _logdet_ginv(void)
             if args.alpha_override:
                 if args.alpha_tau > 0:
                     r0 = model.temperature.to(z_det.device) * torch.sqrt(

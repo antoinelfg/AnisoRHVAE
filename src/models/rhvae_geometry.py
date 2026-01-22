@@ -286,7 +286,7 @@ class GeometryRHVAE(RHVAE):
         min_dists_sq = dists_sq.min(dim=1).values
         return torch.sqrt(min_dists_sq + 1e-10)
 
-    def _compute_void_inverse_metric(
+    def _compute_directional_uu(
         self,
         z: torch.Tensor,
         centroids: torch.Tensor,
@@ -299,15 +299,26 @@ class GeometryRHVAE(RHVAE):
             direction = centroids[nearest_idx] - z
             denom = torch.linalg.norm(direction, dim=1, keepdim=True).clamp_min(1e-8)
             u_hat = direction / denom
-            return self._void_from_direction(u_hat)
+            return torch.einsum("bi,bj->bij", u_hat, u_hat)
 
         weights = self._compute_soft_attractor_weights(z, centroids, precisions)
         denom = torch.linalg.norm(diff, dim=-1, keepdim=True).clamp_min(1e-8)
         u_hat = diff / denom
         u_hat_flat = u_hat.reshape(-1, u_hat.shape[-1])
-        void = self._void_from_direction(u_hat_flat)
-        void = void.view(z.shape[0], centroids.shape[0], z.shape[1], z.shape[1])
-        return torch.einsum("bk,bkij->bij", weights, void)
+        uu_t = torch.einsum("bi,bj->bij", u_hat_flat, u_hat_flat)
+        uu_t = uu_t.view(z.shape[0], centroids.shape[0], z.shape[1], z.shape[1])
+        return torch.einsum("bk,bkij->bij", weights, uu_t)
+
+    def _compute_void_inverse_metric(
+        self,
+        z: torch.Tensor,
+        centroids: torch.Tensor,
+        precisions: torch.Tensor | None,
+    ) -> torch.Tensor:
+        radial_uu_t = self._compute_directional_uu(z, centroids, precisions)
+        beta = torch.tensor(self.radial_stretch, device=z.device, dtype=z.dtype)
+        eye = torch.eye(self.latent_dim, device=z.device, dtype=z.dtype).unsqueeze(0)
+        return beta * radial_uu_t + self.lbd.to(device=z.device, dtype=z.dtype) * eye
 
     def _compute_inverse_metric_at_z(self, z: torch.Tensor) -> torch.Tensor:
         base = self._compute_base_inverse_metric(z)
@@ -323,13 +334,17 @@ class GeometryRHVAE(RHVAE):
         if self.attractor_metric == "mahalanobis" or self.attractor_use_det:
             precisions = self._get_attractor_precisions(None, z.device)
 
-        void = self._compute_void_inverse_metric(z, centroids, precisions)
-        decay = self._compute_void_decay(min_dists_eucl).view(-1, 1, 1)
-        void = decay * void
+        radial_uu_t = self._compute_directional_uu(z, centroids, precisions)
+        decay_transverse = self._compute_void_decay(min_dists_eucl).view(-1, 1, 1)
+        decay_longitudinal = 1.0
+        term_long = (self.radial_stretch * decay_longitudinal) * radial_uu_t
+        eye = torch.eye(self.latent_dim, device=z.device, dtype=z.dtype).unsqueeze(0)
+        term_trans = self.lbd.to(device=z.device, dtype=z.dtype) * decay_transverse * eye
+        void = term_long + term_trans
 
         alpha = self._compute_alpha(min_dists_eucl).view(-1, 1, 1)
         blended = (1.0 - alpha) * base + alpha * void
-        return blended
+        return self._stabilize_metric(blended)
 
     def _compute_metric_at_z(self, z: torch.Tensor) -> torch.Tensor:
         g_inv = self._compute_inverse_metric_at_z(z)
@@ -433,13 +448,17 @@ class GeometryRHVAE(RHVAE):
         diff_eucl = centroids.unsqueeze(0) - z.unsqueeze(1)
         min_dists_eucl = self._min_euclidean_distance(diff_eucl)
 
-        void = self._compute_void_inverse_metric(z, centroids, precisions)
-        decay = self._compute_void_decay(min_dists_eucl).view(-1, 1, 1)
-        void = decay * void
+        radial_uu_t = self._compute_directional_uu(z, centroids, precisions)
+        decay_transverse = self._compute_void_decay(min_dists_eucl).view(-1, 1, 1)
+        decay_longitudinal = 1.0
+        term_long = (self.radial_stretch * decay_longitudinal) * radial_uu_t
+        eye = torch.eye(self.latent_dim, device=z.device, dtype=z.dtype).unsqueeze(0)
+        term_trans = self.lbd.to(device=z.device, dtype=z.dtype) * decay_transverse * eye
+        void = term_long + term_trans
 
         alpha = self._compute_alpha(min_dists_eucl).view(-1, 1, 1)
         blended = (1.0 - alpha) * base + alpha * void
-        return blended
+        return self._stabilize_metric(blended)
 
     def _void_from_direction(self, u_hat: torch.Tensor) -> torch.Tensor:
         uu_t = torch.einsum("bi,bj->bij", u_hat, u_hat)
