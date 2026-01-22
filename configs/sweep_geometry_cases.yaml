@@ -1,0 +1,68 @@
+program: scripts/run_pythae_rhvae_baseline.py
+method: grid
+project: rhvae-geometry-benchmark
+name: comparison-5-cases-smooth-funnel
+
+parameters:
+  # --- Main variable ---
+  geometry_case:
+    values:
+      #- baseline
+      #- highway
+      #- hard_funnel
+      - smooth_funnel
+      - gravity_well
+
+  # --- Fixed hyperparameters ---
+  temperature:
+    value: 0.5
+  regularization:
+    value: 0.0
+  precision_jitter:
+    value: 0.001
+
+  # Attractor controls
+  void_threshold:
+    value: 1.5           # Distance raisonnable (environ 1.5 sigma)
+  void_weight_threshold:
+    value: -1.0          # désactivé (utilise void_threshold classique)
+  void_decay_type:
+    value: invquad
+  void_decay_scale:
+    value: 1.0
+  void_decay_power:
+    value: 2.0
+  void_decay_softplus_beta:
+    value: 10.0
+  transition_steepness:
+    value: 0.5           # Pente douce ("Toboggan" validé)
+  radial_stretch:
+    value: 5.0           # Aligné sur le run de référence
+  transverse_inertia:
+    value: 0.05          # Aligné sur le run de référence
+
+  # Soft funnel parameters
+  attractor_gamma:
+    value: 5.0           # Standard, bon compromis mix/localité
+  attractor_k_nearest:
+    value: 5             # Aligné sur le run de référence
+  attractor_metric:
+    value: euclidean
+    
+  # Uniform controls
+  void_mode:
+    value: distance
+
+  # Training budget
+  num_sequences:
+    value: 200
+  max_frames:
+    value: 3000
+  epochs:
+    value: 200
+  batch_size:
+    value: 64
+  seed:
+    value: 42
+  wandb_name_mode:
+    value: auto
