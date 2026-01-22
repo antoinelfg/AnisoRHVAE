@@ -916,20 +916,25 @@ def rhmc_volume_chain(
     path = [z.squeeze(0).cpu().numpy()]
     logdet_values = []
     accept_count = 0
-    with torch.no_grad():
-        for _ in range(sampler.mcmc_steps_nbr):
-            gamma = torch.randn_like(z, device=device)
-            rho = gamma / sampler.beta_zero_sqrt
+    for _ in range(sampler.mcmc_steps_nbr):
+        gamma = torch.randn_like(z, device=device)
+        rho = gamma / sampler.beta_zero_sqrt
+        with torch.no_grad():
             H0 = -sampler._log_sqrt_det_Ginv(z, model) + 0.5 * torch.sum(rho * rho, dim=1)
-            for k in range(sampler.n_lf):
+        for k in range(sampler.n_lf):
+            with torch.enable_grad():
                 g = -sampler._grad_log_sqrt_det_Ginv(z, model)
+            with torch.no_grad():
                 rho_half = rho - 0.5 * sampler.eps_lf * g
                 z = z + sampler.eps_lf * rho_half
+            with torch.enable_grad():
                 g_new = -sampler._grad_log_sqrt_det_Ginv(z, model)
+            with torch.no_grad():
                 rho_new = rho_half - 0.5 * sampler.eps_lf * g_new
                 beta_sqrt = sampler._tempering(k + 1, sampler.n_lf, sampler.beta_zero_sqrt)
                 rho = (beta_sqrt_old / beta_sqrt) * rho_new
                 beta_sqrt_old = beta_sqrt
+        with torch.no_grad():
             H1 = -sampler._log_sqrt_det_Ginv(z, model) + 0.5 * torch.sum(rho * rho, dim=1)
             alpha = torch.exp(-(H1 - H0)).clamp(max=1.0)
             u = torch.rand_like(alpha)
