@@ -29,37 +29,20 @@ class RiemannianHMCSampler(BaseRiemannianSampler):
         self.grad_func = lambda z: -z
     
     def _log_sqrt_det_G_inv(self, z, t=0):
-        """Fallback: compute log(sqrt(det(G^{-1}))) using autograd."""
+        """Compute log(sqrt(det(G^{-1}))) using autograd."""
         if not z.requires_grad:
             z = z.clone().detach().requires_grad_(True)
         G = self.model.compute_metric_tensor(z, t)
-        G_inv = torch.linalg.inv(G + 1e-6 * torch.eye(G.size(-1), device=G.device).unsqueeze(0).expand_as(G))
+        G_inv = torch.linalg.inv(
+            G + 1e-6 * torch.eye(G.size(-1), device=G.device).unsqueeze(0).expand_as(G)
+        )
         det_G_inv = torch.linalg.det(G_inv)
         det_G_inv = torch.clamp(det_G_inv, min=1e-10)
         log_det = 0.5 * torch.log(det_G_inv)
         return log_det
-    
-    @staticmethod
-    def _grad_log_sqrt_det_Ginv(z, model):
-        """Gradient of log sqrt det(G^{-1}(z)) using the native metric parametrization.
-
-        Mirrors the implementation used by RHVAE samplers operating on G^{-1} anchors.
-        Requires the model to expose `centroids_tens`, `M_tens`, `temperature`, and `G(z)`.
-        """
-        centroids = model.centroids_tens
-        M = model.M_tens
-        T = model.temperature
-        diff = (centroids.unsqueeze(0) - z.unsqueeze(1))  # [B,K,D]
-        weights = torch.exp(-torch.norm(diff, dim=-1) ** 2 / (T ** 2))  # [B,K]
-        term = (-2.0 / (T ** 2)) * diff.unsqueeze(2)  # [B,K,1,D]
-        weighted_M = M.unsqueeze(0) * weights.unsqueeze(-1).unsqueeze(-1)  # [B,K,D,D]
-        inner = torch.matmul(term, weighted_M).sum(dim=1)  # [B,1,D]
-        Gz = model.G(z)  # [B,D,D]
-        grad = -0.5 * torch.matmul(Gz.transpose(-2, -1), inner.transpose(1, 2))  # [B,D,1]
-        return grad.squeeze(-1)  # [B,D]
 
     def _grad_log_prop(self, z, t=0):
-        """Fallback: compute gradient using autograd."""
+        """Compute gradient of log sqrt det(G^{-1}) using autograd."""
         if not z.requires_grad:
             z_grad = z.clone().detach().requires_grad_(True)
         else:
@@ -146,16 +129,11 @@ class RiemannianHMCSampler(BaseRiemannianSampler):
         # U(z) = -log pi(z) + 0.5 log det G(z) = -log pi(z) - log sqrt(det G^{-1}(z))
         grad_pi = -self.grad_func(z)
         if self.include_volume_grad:
-            try:
-                # ∇[0.5 log det G(z)] = - ∇[log sqrt det G^{-1}(z)]
-                vol_grad = -self._grad_log_sqrt_det_Ginv(z, self.model)
-            except Exception:
-                # Fallback: autograd on 0.5 log det G(z)
-                z_req = z if z.requires_grad else z.clone().detach().requires_grad_(True)
-                G = self.model.G(z_req)
-                sign, logabs = torch.linalg.slogdet(G)
-                vol = 0.5 * logabs
-                vol_grad = torch.autograd.grad(vol.sum(), z_req, create_graph=False)[0]
+            z_req = z if z.requires_grad else z.clone().detach().requires_grad_(True)
+            G = self.model.G(z_req)
+            logabs = torch.linalg.slogdet(G).logabsdet
+            vol_potential = 0.5 * logabs.sum()
+            vol_grad = torch.autograd.grad(vol_potential, z_req, create_graph=False)[0]
         else:
             vol_grad = 0.0
 
@@ -167,12 +145,24 @@ class RiemannianHMCSampler(BaseRiemannianSampler):
         z_new = z + eps * torch.einsum('bij,bj->bi', G_inv, rho_half)
         
         # Step 3: Recompute gradient at new position
-        grad_new = -self.grad_func(z_new)
-        
+        grad_new_pi = -self.grad_func(z_new)
+        if self.include_volume_grad:
+            z_new_req = z_new if z_new.requires_grad else z_new.clone().detach().requires_grad_(True)
+            G_new = self.model.G(z_new_req)
+            logabs_new = torch.linalg.slogdet(G_new).logabsdet
+            vol_potential_new = 0.5 * logabs_new.sum()
+            vol_grad_new = torch.autograd.grad(
+                vol_potential_new, z_new_req, create_graph=False
+            )[0]
+        else:
+            z_new_req = z_new
+            vol_grad_new = 0.0
+        grad_new = grad_new_pi + vol_grad_new
+
         # Step 4: Final half momentum update
         rho_new = rho_half - (eps / 2) * grad_new
-        
-        return z_new, rho_new
+
+        return z_new_req, rho_new
     
     def sample(
         self,
@@ -492,18 +482,12 @@ class RHVAEVolumeElementHMCSampler(BaseRiemannianSampler):
 
     @staticmethod
     def _grad_log_sqrt_det_Ginv(z, model):
-        # Exact translation of benchmark_VAE RHVAESampler.grad_log_sqrt_det_G_inv
-        centroids = model.centroids_tens
-        M = model.M_tens
-        T = model.temperature
-        diff = (centroids.unsqueeze(0) - z.unsqueeze(1))  # [B,K,D]
-        weights = torch.exp(-torch.norm(diff, dim=-1) ** 2 / (T ** 2))  # [B,K]
-        term = (-2.0 / (T ** 2)) * diff.unsqueeze(2)  # [B,K,1,D]
-        weighted_M = M.unsqueeze(0) * weights.unsqueeze(-1).unsqueeze(-1)  # [B,K,D,D]
-        inner = torch.matmul(term, weighted_M).sum(dim=1)  # [B,1,D]
-        Gz = model.G(z)  # [B,D,D]
-        grad = -0.5 * torch.matmul(Gz.transpose(-2, -1), inner.transpose(1, 2))  # [B,D,1]
-        return grad.squeeze(-1)  # [B,D]
+        z_req = z if z.requires_grad else z.clone().detach().requires_grad_(True)
+        G_inv = model.G_inv(z_req)
+        logabs = torch.linalg.slogdet(G_inv).logabsdet
+        log_sqrt = 0.5 * logabs.sum()
+        grad = torch.autograd.grad(log_sqrt, z_req, create_graph=False)[0]
+        return grad
 
     @staticmethod
     def _tempering(k, K, beta_zero_sqrt):

@@ -440,11 +440,25 @@ class GeometryRHVAE(RHVAE):
         if not self.use_attractor:
             return base
 
+        centroids = mu
+        atoms = M
+        if len(self.centroids) > 0:
+            try:
+                centroids = torch.cat(list(self.centroids), dim=0).to(z.device)
+                if len(self.M) > 0:
+                    atoms = torch.cat(list(self.M), dim=0).to(z.device)
+            except RuntimeError:
+                centroids = mu
+                atoms = M
+        if atoms.shape[0] != centroids.shape[0]:
+            centroids = mu
+            atoms = M
+
         precisions = None
         if self.attractor_metric == "mahalanobis" or self.attractor_use_det:
-            precisions = self._precision_from_cov(cov)
+            cov_global, _ = self._prepare_atoms(atoms)
+            precisions = self._precision_from_cov(cov_global)
 
-        centroids = mu
         diff_eucl = centroids.unsqueeze(0) - z.unsqueeze(1)
         min_dists_eucl = self._min_euclidean_distance(diff_eucl)
 
