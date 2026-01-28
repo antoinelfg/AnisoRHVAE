@@ -83,6 +83,11 @@ class GeometryRHVAEConfig(RHVAEConfig):
     kernel_power: float = 1.0
     atom_norm: str = "none"
 
+    # RHMC integrator control (training)
+    rhmc_integrator: str = "explicit"  # explicit | implicit
+    rhmc_fp_steps: int = 6
+    rhmc_fp_damping: float = 0.5
+
     @classmethod
     def from_physics(
         cls,
@@ -128,6 +133,9 @@ class GeometryRHVAE(RHVAE):
 
     def __init__(self, model_config: GeometryRHVAEConfig, **kwargs):
         super().__init__(model_config, **kwargs)
+        self.rhmc_integrator = str(model_config.rhmc_integrator).lower()
+        self.rhmc_fp_steps = int(model_config.rhmc_fp_steps)
+        self.rhmc_fp_damping = float(model_config.rhmc_fp_damping)
         self.use_attractor = bool(model_config.use_attractor)
         self.attractor_metric = str(model_config.attractor_metric).lower()
         self.attractor_gamma = float(model_config.attractor_gamma)
@@ -190,6 +198,21 @@ class GeometryRHVAE(RHVAE):
         else:
             self.G = create_metric(self)
             self.G_inv = create_inverse_metric(self)
+
+    @property
+    def device(self) -> torch.device:
+        """Return the device of the model parameters."""
+        if hasattr(self, '_device') and self._device is not None:
+            return self._device
+        try:
+            return next(self.parameters()).device
+        except StopIteration:
+            return torch.device('cpu')
+    
+    @device.setter
+    def device(self, value):
+        """Allow setting device (for compatibility with base class)."""
+        self._device = value
 
     def set_atoms(self, atoms: torch.Tensor) -> None:
         """Overwrite metric atoms (M_tens) in memory."""
@@ -510,6 +533,96 @@ class GeometryRHVAE(RHVAE):
         r0 = self._compute_r0(min_dists)
         return torch.sigmoid((min_dists - r0) * self.transition_steepness)
 
+    def _metric_quantities(
+        self,
+        z: torch.Tensor,
+        mu: torch.Tensor | None = None,
+        M: torch.Tensor | None = None,
+        training: bool = False,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if training and mu is not None and M is not None:
+            G_inv = self._compute_training_inverse_metric(z, mu, M)
+        else:
+            G_inv = self.G_inv(z)
+        logabsdet = torch.linalg.slogdet(G_inv).logabsdet
+        G_log_det = -logabsdet
+        return G_inv, G_log_det
+
+    def _grad_z_hamiltonian(
+        self,
+        recon_x: torch.Tensor,
+        x: torch.Tensor,
+        z: torch.Tensor,
+        rho: torch.Tensor,
+        mu: torch.Tensor | None = None,
+        M: torch.Tensor | None = None,
+        training: bool = False,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        z_req = z if z.requires_grad else z.clone().detach().requires_grad_(True)
+        if recon_x is None:
+            recon_x = self.decoder(z_req)["reconstruction"]
+        G_inv, G_log_det = self._metric_quantities(z_req, mu, M, training=training)
+        H = self._hamiltonian(recon_x, x, z_req, rho, G_inv, G_log_det)
+        grad = torch.autograd.grad(
+            H.sum(), z_req, create_graph=self.training, retain_graph=True
+        )[0]
+        return grad, z_req, G_inv, G_log_det
+
+    def _generalized_leapfrog_implicit(
+        self,
+        recon_x: torch.Tensor,
+        x: torch.Tensor,
+        z: torch.Tensor,
+        rho: torch.Tensor,
+        mu: torch.Tensor | None = None,
+        M: torch.Tensor | None = None,
+        training: bool = False,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        eps = float(self.eps_lf)
+        steps = max(1, int(self.rhmc_fp_steps))
+        damping = float(self.rhmc_fp_damping)
+
+        def _explicit_fallback() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+            G_inv, G_log_det = self._metric_quantities(z, mu, M, training=training)
+            rho_ = self._leap_step_1(recon_x, x, z, rho, G_inv, G_log_det)
+            z_new = self._leap_step_2(recon_x, x, z, rho_, G_inv, G_log_det)
+            recon_new = self.decoder(z_new)["reconstruction"]
+            G_inv_new, G_log_det_new = self._metric_quantities(z_new, mu, M, training=training)
+            rho_new = self._leap_step_3(recon_new, x, z_new, rho_, G_inv_new, G_log_det_new)
+            return z_new, rho_new, G_inv_new, G_log_det_new
+
+        # (A) Implicit half-step for momentum via fixed-point iterations
+        rho_half = rho
+        for _ in range(steps):
+            grad_z, _, _, _ = self._grad_z_hamiltonian(
+                None, x, z, rho_half, mu, M, training=training
+            )
+            if not torch.isfinite(grad_z).all():
+                return _explicit_fallback()
+            rho_update = rho - 0.5 * eps * grad_z
+            rho_half = (1.0 - damping) * rho_half + damping * rho_update
+
+        # (B) Implicit full-step for position via fixed-point iterations
+        z_new = z
+        for _ in range(steps):
+            G_inv_z, _ = self._metric_quantities(z, mu, M, training=training)
+            G_inv_new, _ = self._metric_quantities(z_new, mu, M, training=training)
+            v0 = torch.einsum("bij,bj->bi", G_inv_z, rho_half)
+            v1 = torch.einsum("bij,bj->bi", G_inv_new, rho_half)
+            z_update = z + 0.5 * eps * (v0 + v1)
+            z_new = (1.0 - damping) * z_new + damping * z_update
+            if not torch.isfinite(z_new).all():
+                return _explicit_fallback()
+
+        # (C) Final momentum half-step at z_new
+        grad_z_new, z_req, G_inv_new, G_log_det_new = self._grad_z_hamiltonian(
+            None, x, z_new, rho_half, mu, M, training=training
+        )
+        if not torch.isfinite(grad_z_new).all():
+            return _explicit_fallback()
+        rho_new = rho_half - 0.5 * eps * grad_z_new
+        return z_req, rho_new, G_inv_new, G_log_det_new
+
     def forward(self, inputs, **kwargs):
         x = inputs["data"]
 
@@ -520,6 +633,7 @@ class GeometryRHVAE(RHVAE):
         z0, eps0 = self._sample_gauss(mu, std)
 
         z = z0
+        M: torch.Tensor | None = None
 
         if self.training:
             L = self.metric(x)["L"]
@@ -543,23 +657,39 @@ class GeometryRHVAE(RHVAE):
 
         recon_x = self.decoder(z)["reconstruction"]
 
+        use_implicit = self.rhmc_integrator == "implicit"
+
         for k in range(self.n_lf):
-            rho_ = self._leap_step_1(recon_x, x, z, rho, G_inv, G_log_det)
-            z = self._leap_step_2(recon_x, x, z, rho_, G_inv, G_log_det)
-            recon_x = self.decoder(z)["reconstruction"]
-
-            if self.training:
-                G_inv = self._compute_training_inverse_metric(z, mu, M)
+            if use_implicit:
+                z, rho, G_inv, G_log_det = self._generalized_leapfrog_implicit(
+                    recon_x,
+                    x,
+                    z,
+                    rho,
+                    mu=mu,
+                    M=M,
+                    training=self.training,
+                )
+                recon_x = self.decoder(z)["reconstruction"]
             else:
-                G = self.G(z)
-                G_inv = self.G_inv(z)
+                rho_ = self._leap_step_1(recon_x, x, z, rho, G_inv, G_log_det)
+                z = self._leap_step_2(recon_x, x, z, rho_, G_inv, G_log_det)
+                recon_x = self.decoder(z)["reconstruction"]
 
-            sign, logabsdet = torch.linalg.slogdet(G_inv)
-            G_log_det = -logabsdet
+                if self.training:
+                    G_inv = self._compute_training_inverse_metric(z, mu, M)
+                else:
+                    G = self.G(z)
+                    G_inv = self.G_inv(z)
 
-            rho__ = self._leap_step_3(recon_x, x, z, rho_, G_inv, G_log_det)
+                sign, logabsdet = torch.linalg.slogdet(G_inv)
+                G_log_det = -logabsdet
+
+                rho__ = self._leap_step_3(recon_x, x, z, rho_, G_inv, G_log_det)
+                rho = rho__
+
             beta_sqrt = self._tempering(k + 1, self.n_lf)
-            rho = (beta_sqrt_old / beta_sqrt) * rho__
+            rho = (beta_sqrt_old / beta_sqrt) * rho
             beta_sqrt_old = beta_sqrt
 
         loss = self.loss_function(

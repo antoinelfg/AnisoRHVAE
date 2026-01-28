@@ -361,6 +361,118 @@ class RiemannianHMCSampler(BaseRiemannianSampler):
         } 
 
 
+class GeodesicHMCSampler(BaseRiemannianSampler):
+    """Explicit geodesic HMC sampler targeting the uniform Riemannian measure.
+
+    Target density: π_R(z) ∝ sqrt(det(G(z))) (uniform w.r.t. volume element).
+    Hamiltonian reduces to pure kinetic energy:
+        H(z, ρ) = 1/2 ρ^T G^{-1}(z) ρ
+    """
+
+    def __init__(
+        self,
+        model,
+        mcmc_steps_nbr: int = 100,
+        n_lf: int = 15,
+        eps_lf: float = 0.03,
+        beta_zero: float = 1.0,
+        include_metropolis: bool = True,
+    ):
+        super().__init__(model)
+        self.mcmc_steps_nbr = int(mcmc_steps_nbr)
+        self.n_lf = int(n_lf)
+        self.eps_lf = float(eps_lf)
+        self.beta_zero_sqrt = torch.tensor([beta_zero], device=self.device).sqrt()
+        self.include_metropolis = bool(include_metropolis)
+
+    @staticmethod
+    def _tempering(k: int, K: int, beta_zero_sqrt: torch.Tensor) -> torch.Tensor:
+        beta_k = ((1 - 1 / beta_zero_sqrt) * (k / K) ** 2) + 1 / beta_zero_sqrt
+        return 1 / beta_k
+
+    def _initialize_momentum(self, z: torch.Tensor) -> torch.Tensor:
+        """Sample ρ ~ N(0, G(z))."""
+        gamma = torch.randn_like(z)
+        G = self.model.G(z)
+        try:
+            jitter = getattr(getattr(self, "metric_config", None), "cholesky_jitter", 0.0)
+            if jitter and jitter > 0:
+                eye = torch.eye(G.shape[-1], device=G.device, dtype=G.dtype)
+                G = G + jitter * eye
+            L = torch.linalg.cholesky(G)
+            rho = torch.einsum("bij,bj->bi", L, gamma)
+        except torch.linalg.LinAlgError:
+            evals, evecs = torch.linalg.eigh(G)
+            evals = torch.clamp(evals, min=1e-6)
+            sqrt_G = evecs @ torch.diag_embed(torch.sqrt(evals)) @ evecs.transpose(-2, -1)
+            rho = torch.einsum("bij,bj->bi", sqrt_G, gamma)
+        return rho
+
+    def _hamiltonian(self, z: torch.Tensor, rho: torch.Tensor) -> torch.Tensor:
+        G_inv = self.model.G_inv(z)
+        return 0.5 * torch.einsum("bi,bij,bj->b", rho, G_inv, rho)
+
+    def _grad_z(self, z: torch.Tensor, rho: torch.Tensor) -> torch.Tensor:
+        z_req = z if z.requires_grad else z.clone().detach().requires_grad_(True)
+        G_inv = self.model.G_inv(z_req)
+        quad = 0.5 * torch.einsum("bi,bij,bj->b", rho, G_inv, rho).sum()
+        grad = torch.autograd.grad(quad, z_req, create_graph=False)[0]
+        return grad
+
+    def _leapfrog(self, z: torch.Tensor, rho: torch.Tensor, eps: float):
+        grad = self._grad_z(z, rho)
+        rho_half = rho - 0.5 * eps * grad
+        G_inv = self.model.G_inv(z)
+        z_new = z + eps * torch.einsum("bij,bj->bi", G_inv, rho_half)
+        grad_new = self._grad_z(z_new, rho_half)
+        rho_new = rho_half - 0.5 * eps * grad_new
+        return z_new, rho_new
+
+    def sample(self, n_samples: int = 100) -> torch.Tensor:
+        device = self.model.device if hasattr(self.model, 'device') else next(self.model.parameters()).device
+        # Ensure beta_zero_sqrt is on correct device
+        self.beta_zero_sqrt = self.beta_zero_sqrt.to(device)
+        z = torch.randn(n_samples, self.model.latent_dim, device=device).requires_grad_(True)
+        accept_count = 0
+        for _ in range(self.mcmc_steps_nbr):
+            rho0 = self._initialize_momentum(z)
+            with torch.no_grad():
+                H0 = self._hamiltonian(z, rho0)
+
+            z_prop, rho_prop = z, rho0
+            beta_sqrt_old = self.beta_zero_sqrt
+            for k in range(self.n_lf):
+                z_prop, rho_prop = self._leapfrog(z_prop, rho_prop, self.eps_lf)
+                beta_sqrt = self._tempering(k + 1, self.n_lf, self.beta_zero_sqrt)
+                rho_prop = (beta_sqrt_old / beta_sqrt) * rho_prop
+                beta_sqrt_old = beta_sqrt
+
+            if self.include_metropolis:
+                with torch.no_grad():
+                    H1 = self._hamiltonian(z_prop, rho_prop)
+                    log_alpha = H0 - H1
+                    alpha = torch.exp(torch.clamp(log_alpha, max=0))
+                    u = torch.rand_like(alpha)
+                    accept = (u < alpha).float().view(-1, 1)
+                    z = ((accept * z_prop + (1 - accept) * z).detach().requires_grad_(True))
+                    accept_count += int(accept.sum().item())
+            else:
+                z = z_prop.detach().requires_grad_(True)
+
+        if self.include_metropolis:
+            print(f"✅ Geodesic RHMC Acceptance Rate: {accept_count / (self.mcmc_steps_nbr * n_samples):.3f}")
+        return z.detach()
+
+    def sample_prior(self, num_samples: int, method: str = "geodesic") -> torch.Tensor:
+        return self.sample(num_samples)
+
+    def sample_riemannian_latents(
+        self, mu: torch.Tensor, log_var: torch.Tensor, method: str = "geodesic"
+    ) -> torch.Tensor:
+        eps = torch.randn_like(mu)
+        return (mu + eps * torch.exp(0.5 * log_var)).detach()
+
+
 class DualRiemannianHMCSampler(BaseRiemannianSampler):
     """Dual RHMC that treats G^{-1} as the metric tensor.
 
@@ -435,7 +547,7 @@ class DualRiemannianHMCSampler(BaseRiemannianSampler):
         return z_new, p_new
 
     def sample(self, n_samples: int = 100) -> torch.Tensor:
-        device = self.model.device
+        device = self.model.device if hasattr(self.model, 'device') else next(self.model.parameters()).device
         z = torch.randn(n_samples, self.model.latent_dim, device=device).requires_grad_(True)
         accept_count = 0
         for _ in range(self.mcmc_steps_nbr):
@@ -459,6 +571,16 @@ class DualRiemannianHMCSampler(BaseRiemannianSampler):
         print(f"✅ RHMC Acceptance Rate: {accept_count / (self.mcmc_steps_nbr * n_samples):.3f}")
         return z.detach()
 
+    def sample_prior(self, num_samples: int, method: str = "dual") -> torch.Tensor:
+        return self.sample(num_samples)
+
+    def sample_riemannian_latents(
+        self, mu: torch.Tensor, log_var: torch.Tensor, method: str = "dual"
+    ) -> torch.Tensor:
+        eps = torch.randn_like(mu)
+        return (mu + eps * torch.exp(0.5 * log_var)).detach()
+
+
 class RHVAEVolumeElementHMCSampler(BaseRiemannianSampler):
     """Sampler that mirrors the original RHVAE sampler behavior.
 
@@ -473,6 +595,11 @@ class RHVAEVolumeElementHMCSampler(BaseRiemannianSampler):
         self.n_lf = int(n_lf)
         self.eps_lf = float(eps_lf)
         self.beta_zero_sqrt = torch.tensor([beta_zero], device=self.device).sqrt()
+
+    def _initialize_momentum(self, z: torch.Tensor) -> torch.Tensor:
+        """Initialize momentum from Euclidean Gaussian scaled by tempering."""
+        gamma = torch.randn_like(z, device=z.device)
+        return gamma / self.beta_zero_sqrt
 
     @staticmethod
     def _log_sqrt_det_Ginv(z, model):
@@ -494,11 +621,26 @@ class RHVAEVolumeElementHMCSampler(BaseRiemannianSampler):
         beta_k = ((1 - 1 / beta_zero_sqrt) * (k / K) ** 2) + 1 / beta_zero_sqrt
         return 1 / beta_k
 
+    def _hamiltonian(self, z: torch.Tensor, rho: torch.Tensor) -> torch.Tensor:
+        """Hamiltonian: H = -0.5 log det(G_inv) + 0.5 rho^T rho (Euclidean kinetic)."""
+        return -self._log_sqrt_det_Ginv(z, self.model) + 0.5 * torch.sum(rho * rho, dim=1)
+
+    def _leapfrog(self, z: torch.Tensor, rho: torch.Tensor, eps: float):
+        """Euclidean leapfrog step using gradient of log sqrt det(G_inv)."""
+        g = -self._grad_log_sqrt_det_Ginv(z, self.model)
+        rho_half = rho - 0.5 * eps * g
+        z_new = z + eps * rho_half
+        g_new = -self._grad_log_sqrt_det_Ginv(z_new, self.model)
+        rho_new = rho_half - 0.5 * eps * g_new
+        return z_new, rho_new
+
     def sample(self, n_samples: int = 100) -> torch.Tensor:
-        device = self.device
+        device = self.model.device if hasattr(self.model, 'device') else next(self.model.parameters()).device
+        # Ensure beta_zero_sqrt is on correct device
+        self.beta_zero_sqrt = self.beta_zero_sqrt.to(device)
         K = self.model.centroids_tens.shape[0]
         idx = torch.randint(K, (n_samples,), device=device)
-        z0 = self.model.centroids_tens[idx].detach()
+        z0 = self.model.centroids_tens[idx].detach().to(device)
         z = z0
         beta_sqrt_old = self.beta_zero_sqrt
         accept_count = 0
@@ -566,3 +708,107 @@ class RHVAEVolumeElementHMCSampler(BaseRiemannianSampler):
                 moves = (u < alpha).float().view(-1, 1)
                 z = ((moves * z + (1 - moves) * mu.to(device)).detach())
         return z.detach()
+
+
+class ManifoldAttractionHMCSampler(BaseRiemannianSampler):
+    """HMC sampler that attracts samples to the manifold.
+    
+    Uses the ORIGINAL metric design where:
+    - G_inv is LARGE on manifold (from learned covariances)
+    - G_inv is SMALL in void
+    
+    Target: π(z) ∝ sqrt(det(G_inv)) → prefers manifold
+    Dynamics: dz = G * ρ → small steps on manifold, larger in void
+    
+    This combination creates "attraction" to the manifold:
+    - Samples starting in void take large steps (via G) toward manifold
+    - Once on manifold, small G keeps them there
+    - Target distribution strongly prefers manifold regions
+    """
+    
+    def __init__(self, model, mcmc_steps_nbr: int = 100, n_lf: int = 15, 
+                 eps_lf: float = 0.03, beta_zero: float = 1.0):
+        super().__init__(model)
+        self.mcmc_steps_nbr = int(mcmc_steps_nbr)
+        self.n_lf = int(n_lf)
+        self.eps_lf = float(eps_lf)
+        self.beta_zero_sqrt = torch.tensor([beta_zero], device=self.device).sqrt()
+    
+    def _initialize_momentum(self, z: torch.Tensor) -> torch.Tensor:
+        """Initialize momentum from standard Gaussian."""
+        return torch.randn_like(z)
+    
+    def _hamiltonian(self, z: torch.Tensor, rho: torch.Tensor) -> torch.Tensor:
+        """H = -0.5 log det(G_inv) + 0.5 rho^T rho"""
+        G_inv = self.model.G_inv(z)
+        log_det = torch.linalg.slogdet(G_inv).logabsdet
+        return -0.5 * log_det + 0.5 * (rho * rho).sum(dim=1)
+    
+    def _grad_potential(self, z: torch.Tensor) -> torch.Tensor:
+        """Gradient of U = -0.5 log det(G_inv)"""
+        z_req = z if z.requires_grad else z.clone().detach().requires_grad_(True)
+        G_inv = self.model.G_inv(z_req)
+        log_det = torch.linalg.slogdet(G_inv).logabsdet
+        U = -0.5 * log_det.sum()
+        return torch.autograd.grad(U, z_req, create_graph=False)[0]
+    
+    def _leapfrog(self, z: torch.Tensor, rho: torch.Tensor, eps: float):
+        """Leapfrog with G-based position updates (key for attraction!)"""
+        # Half momentum step
+        grad_U = self._grad_potential(z)
+        rho_half = rho - 0.5 * eps * grad_U
+        
+        # Position step using G (not G_inv!)
+        # G is small on manifold → small steps → stay
+        # G is larger in void → larger steps → escape toward manifold
+        G = self.model.G(z.detach())
+        dz = torch.einsum('bij,bj->bi', G, rho_half)
+        z_new = z.detach() + eps * dz
+        
+        # Final half momentum step
+        grad_U_new = self._grad_potential(z_new)
+        rho_new = rho_half - 0.5 * eps * grad_U_new
+        
+        return z_new, rho_new
+    
+    def sample(self, n_samples: int = 100) -> torch.Tensor:
+        device = self.model.device if hasattr(self.model, 'device') else next(self.model.parameters()).device
+        self.beta_zero_sqrt = self.beta_zero_sqrt.to(device)
+        
+        # Initialize at centroids (on manifold)
+        K = self.model.centroids_tens.shape[0]
+        idx = torch.randint(K, (n_samples,), device=device)
+        z = self.model.centroids_tens[idx].detach().clone().to(device)
+        
+        accept_count = 0
+        for _ in range(self.mcmc_steps_nbr):
+            z = z.requires_grad_(True)
+            rho = self._initialize_momentum(z)
+            
+            with torch.no_grad():
+                H0 = self._hamiltonian(z, rho)
+            
+            z_prop, rho_prop = z, rho
+            for _ in range(self.n_lf):
+                z_prop, rho_prop = self._leapfrog(z_prop, rho_prop, self.eps_lf)
+            
+            with torch.no_grad():
+                H_prop = self._hamiltonian(z_prop, rho_prop)
+                log_alpha = H0 - H_prop
+                alpha = torch.exp(torch.clamp(log_alpha, max=0))
+                u = torch.rand_like(alpha)
+                accept = (u < alpha).float().view(-1, 1)
+                z = (accept * z_prop.detach() + (1 - accept) * z.detach())
+                accept_count += accept.sum().item()
+        
+        self.last_acceptance_rate = accept_count / (self.mcmc_steps_nbr * n_samples)
+        print(f"✅ ManifoldAttraction Acceptance Rate: {self.last_acceptance_rate:.3f}")
+        return z.detach()
+    
+    def sample_prior(self, num_samples: int, method: str = 'attraction') -> torch.Tensor:
+        return self.sample(num_samples)
+    
+    def sample_riemannian_latents(self, mu: torch.Tensor, log_var: torch.Tensor, 
+                                   method: str = 'attraction') -> torch.Tensor:
+        eps = torch.randn_like(mu)
+        return (mu + eps * torch.exp(0.5 * log_var)).detach()

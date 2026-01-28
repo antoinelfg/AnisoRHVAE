@@ -42,6 +42,7 @@ from datetime import datetime
 from pythae.models.rhvae import RHVAE, RHVAEConfig  # pyright: ignore[reportMissingImports]
 from src.models.rhvae_geometry import GeometryRHVAE, GeometryRHVAEConfig
 from scripts.analyze_metric_full import run_analysis
+from scripts.sampling_diagnostics import run_sampling_diagnostics
 from torch.utils.data import DataLoader, TensorDataset  # pyright: ignore[reportMissingImports]
 from tqdm import tqdm  # pyright: ignore[reportMissingModuleSource]
 
@@ -854,7 +855,16 @@ def main():
     parser.add_argument('--precision_jitter', type=float, default=1e-6)
     parser.add_argument('--atom_power', type=float, default=1.0)
     parser.add_argument('--kernel_power', type=float, default=1.0)
-    parser.add_argument('--atom_norm', type=str, default='none', choices=['none', 'trace', 'det'])
+    parser.add_argument('--atom_norm', type=str, default='trace', choices=['none', 'trace', 'det'])
+    parser.add_argument(
+        '--rhmc_integrator',
+        type=str,
+        default='explicit',
+        choices=['explicit', 'implicit'],
+        help='RHMC integrator for training (geometry variant).',
+    )
+    parser.add_argument('--rhmc_fp_steps', type=int, default=6)
+    parser.add_argument('--rhmc_fp_damping', type=float, default=0.5)
     parser.add_argument('--wandb_project', type=str, default='RHVAE-baseline')
     parser.add_argument('--wandb_entity', type=str, default=None)
     parser.add_argument('--wandb_group', type=str, default=None)
@@ -864,6 +874,28 @@ def main():
     parser.add_argument('--analysis_skip_distortion', action='store_true', help='Skip distortion analysis plots.')
     parser.add_argument('--analysis_far_pairs', type=int, default=0, help='Number of far centroid pairs for analysis geodesics.')
     parser.add_argument('--analysis_random_pairs', type=int, default=8, help='Number of random centroid pairs for analysis geodesics.')
+    parser.add_argument(
+        '--analysis_rhmc_sampler',
+        type=str,
+        default='riemannian',
+        choices=['riemannian', 'geodesic'],
+        help='RHMC sampler for analysis (riemannian or geodesic-uniform).',
+    )
+    # Sampling diagnostics arguments
+    parser.add_argument('--skip_sampling_diagnostics', action='store_true', help='Skip sampling diagnostics after training.')
+    parser.add_argument('--sampling_fid_samples', type=int, default=1000, help='Number of samples for FID computation.')
+    parser.add_argument(
+        '--sampling_fid_samplers',
+        type=str,
+        nargs='+',
+        default=['gaussian', 'riemannian', 'geodesic'],
+        help='Samplers to evaluate for FID.',
+    )
+    parser.add_argument('--sampling_n_starts', type=int, default=12, help='Number of starting points for multi-start sampling.')
+    parser.add_argument('--sampling_n_interp_pairs', type=int, default=4, help='Number of interpolation pairs.')
+    parser.add_argument('--sampling_quality_samples', type=int, default=500, help='Samples for quality metrics.')
+    parser.add_argument('--sampling_n_chains', type=int, default=4, help='Number of RHMC chains for diagnostics.')
+    parser.add_argument('--sampling_chain_length', type=int, default=100, help='Length of RHMC chains.')
     args = parser.parse_args()
 
     if args.geometry_case is not None:
@@ -979,7 +1011,7 @@ def main():
         'fix_intensity': True,
         'keep_major_axis_constant': True,
         'keep_area_constant': False,
-        'outline_only': True,
+        'outline_only': False,
         'outline_width': 2,
         'antialias': True,
         'supersample_factor': 4,
@@ -1052,6 +1084,9 @@ def main():
             attractor_k_nearest=args.attractor_k_nearest,
             attractor_use_det=args.attractor_use_det,
             attractor_bias_energy=args.attractor_bias_energy,
+            rhmc_integrator=args.rhmc_integrator,
+            rhmc_fp_steps=args.rhmc_fp_steps,
+            rhmc_fp_damping=args.rhmc_fp_damping,
         )
     rhvae_config = config_cls(**config_kwargs)
 
@@ -1116,6 +1151,11 @@ def main():
         torch.save(metric_data, metric_path)
         print(f"[RHVAE BASELINE] Saved metric to: {metric_path}")
         
+        # Save training data for standalone sampling diagnostics
+        train_data_path = output_dir / 'train_data.pt'
+        torch.save({'data': train_flat.cpu(), 'shape': train_data.shape}, train_data_path)
+        print(f"[RHVAE BASELINE] Saved training data to: {train_data_path}")
+        
         if wandb is not None and wandb.run is not None:
             wandb.save(str(metric_path))
         analysis_dir = output_dir / "analysis_results"
@@ -1128,14 +1168,43 @@ def main():
             skip_distortion=args.analysis_skip_distortion,
             far_pairs=args.analysis_far_pairs,
             random_pairs=args.analysis_random_pairs,
+            rhmc_sampler=args.analysis_rhmc_sampler,
             support_images=support_images,
             support_max_samples=512,
         )
+        
+    # Save model (before diagnostics so standalone runs can also load it)
+    model_save_path = output_dir / 'rhvae_model.pt'
+    torch.save(model.state_dict(), model_save_path)
+    print(f"[RHVAE BASELINE] Saved model to: {model_save_path}")
     
-    # Save model
-    model_path = output_dir / 'rhvae_model.pt'
-    torch.save(model.state_dict(), model_path)
-    print(f"[RHVAE BASELINE] Saved model to: {model_path}")
+    # Run sampling diagnostics (FID, interpolation, multi-start, quality metrics)
+    if not args.skip_sampling_diagnostics:
+        print("[RHVAE BASELINE] Running sampling diagnostics...")
+        sampling_results = run_sampling_diagnostics(
+            model_path=output_dir,
+            real_data=train_flat,
+            output_dir=output_dir / "sampling_diagnostics",
+            device=torch.device(device),
+            wandb_run=wandb.run if wandb is not None and wandb.run is not None else None,
+            model=model,  # Pass model directly to avoid reloading
+            run_fid=True,
+            fid_samples=args.sampling_fid_samples,
+            fid_samplers=args.sampling_fid_samplers,
+            run_multi_start=True,
+            n_starts=args.sampling_n_starts,
+            run_interpolation=True,
+            n_interp_pairs=args.sampling_n_interp_pairs,
+            run_quality=True,
+            quality_samples=args.sampling_quality_samples,
+            do_rhmc_diagnostics=True,
+            n_chains=args.sampling_n_chains,
+            chain_length=args.sampling_chain_length,
+            mcmc_steps=50,
+            n_lf=10,
+            eps_lf=0.02,
+        )
+        print("[RHVAE BASELINE] Sampling diagnostics complete.")
     
     # Save training history
     history_path = output_dir / 'training_history.pt'
