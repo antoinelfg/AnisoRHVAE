@@ -51,3 +51,83 @@ python scripts/analyze_det_vs_r.py \
   --grid_bounds 6 \
   --output_dir outputs/det_vs_r_logdet_g
 ```
+
+## Metric assessment benchmark + W&B dashboard
+```bash
+python scripts/metric_assessment_suite.py \
+  --baseline_model_path outputs/pythae_rhvae_baseline/2026-02-09_15-04-06 \
+  --ours_model_path outputs/pythae_rhvae_baseline/2026-02-09_18-16-00 \
+  --protocol_profile all \
+  --sampling_seeds 13 29 47 71 89 \
+  --run_quality --skip_fid --save_plots \
+  --wandb_project rhvae-geometry-benchmark \
+  --wandb_entity <YOUR_ENTITY> \
+  --wandb_group metric_assessment_benchmark \
+  --wandb_name_mode auto
+```
+
+Sweep files / launchers:
+- `scripts/wandb_metric_assessment_sweep.yaml`
+- `scripts/sbatch_metric_assessment_sweep.sh`
+- `scripts/sbatch_metric_assessment_benchmark.sh`
+- `scripts/wandb_metric_assessment_dashboard.md` (panel template)
+
+## Low-data benchmark pipeline (RotMNIST)
+
+Asset + data + model orchestration:
+
+```bash
+python scripts/sync_assets.py --materialize_aliases
+python scripts/prepare_rotmnist_lowdata.py
+python scripts/train_missing_low_data_models.py --materialize_aliases
+python scripts/run_low_data_benchmark.py
+python scripts/verify_assets.py
+```
+
+SLURM one-shot launcher:
+
+```bash
+sbatch scripts/sbatch_low_data_full_study.sh
+```
+
+## Toy-2D low-data setup (for geometric visualization)
+
+Prepare a deterministic 2D dataset (e.g., moons):
+
+```bash
+python scripts/prepare_toy2d_lowdata.py \
+  --dataset moons \
+  --processed_dir data/processed/toy2d/moons_v1 \
+  --standardize \
+  --subset_ns 50 100 500 \
+  --subset_seeds 13 29 47 71 89
+```
+
+Train RHVAE baselines directly on toy-2D with a true 2D latent (recommended for geodesic plots):
+
+```bash
+python scripts/train_rhvae_tensor.py \
+  --mode standard \
+  --processed_dir data/processed/toy2d/moons_v1 \
+  --n 50 --seed 13 \
+  --latent_dim 2 \
+  --epochs 60 \
+  --plot_heatmaps_during_training --vis_every 5
+
+python scripts/train_rhvae_tensor.py \
+  --mode aniso \
+  --processed_dir data/processed/toy2d/moons_v1 \
+  --n 50 --seed 13 \
+  --latent_dim 2 \
+  --epochs 60 \
+  --auto_temperature --auto_temperature_stat mean_nn --auto_temperature_every 1 \
+  --plot_heatmaps_during_training --vis_every 5
+```
+
+Run from a fixed-temperature config (constant T through the full run):
+
+```bash
+python scripts/run_train_rhvae_tensor_with_config.py \
+  --config configs/train_rhvae_tensor_toy2d_aniso_gravity_well_fixedT.yaml \
+  wandb_mode=offline
+```

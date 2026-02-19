@@ -1,0 +1,14 @@
+{
+  "matched": {
+    "aniso": {
+      "sampler_name": "volume",
+      "exact": true,
+      "volume_power": 1.2142341890290138,
+      "n_lf": 20,
+      "eps_lf": 0.3901234546268719,
+      "momentum_persist": 0.0,
+      "fp_steps": 15,
+      "fp_damping": 0.7
+    }
+  }
+}

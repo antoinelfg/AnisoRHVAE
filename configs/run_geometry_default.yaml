@@ -30,22 +30,27 @@ temperature: 0.8
 regularization: 0.8
 
 # === VOID/MANIFOLD BOUNDARY ===
-void_threshold: 0.45
+void_threshold: 1.2
 void_weight_threshold: -1.0
-transition_steepness: 25.0
-radial_stretch: 7.0
+transition_steepness: 12.0
+radial_stretch: 8.0
 
 # === VOID DECAY (how fast metric changes in void) ===
 void_decay_type: invquad
-void_decay_scale: 3.5
-void_decay_power: 2.0
+void_decay_scale: 4.5
+void_decay_power: 1.5
 void_decay_softplus_k: 5.0
 
+# === VOID SPECTRAL SHAPING (det-preserving, optional) ===
+void_eigshape_mode: none
+void_eigshape_alpha_min: 1.0
+void_eigshape_power: -1.0
+void_eigshape_eig_floor: 1e-8
+
 # === ATTRACTOR CONFIGURATION ===
-attractor_metric: euclidean
+attractor_metric: mahalanobis
 attractor_smoothness: soft
 attractor_use_det: true
-attractor_k_nearest: 15
+attractor_k_nearest: -1
 attractor_gamma: 5.0
 attractor_bias_energy: 18.0
-

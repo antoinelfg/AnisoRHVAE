@@ -1,0 +1,48 @@
+program: scripts/metric_assessment_suite.py
+method: grid
+metric:
+  name: summary/matched/aniso/coverage_local
+  goal: maximize
+parameters:
+  ours_model_path:
+    values:
+      - outputs/candidate_a_staged/candidate_a_staged_2026-02-11_13-34-02/A1/A1_atom_power_1p05/2026-02-11_13-35-33
+      - outputs/candidate_a_staged/candidate_a_staged_2026-02-11_13-34-02/A2/A2_from_A1_atom_power_1p05/2026-02-11_14-03-57
+      - outputs/candidate_a_staged/candidate_a_staged_2026-02-11_13-34-02/A3/A3_from_A2_from_A1_atom_power_1p05/2026-02-11_14-09-44
+  target_acceptance:
+    values: [0.85, 0.90]
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --baseline_model_path
+  - outputs/pythae_rhvae_baseline/2026-02-09_15-04-06
+  - --profile
+  - smoke
+  - --protocols
+  - matched
+  - --sampling_seeds
+  - "13"
+  - "29"
+  - "47"
+  - --sampler_name
+  - volume
+  - --strict_volume_power
+  - "1.0"
+  - --matched_eps_grid
+  - "0.45"
+  - "0.50"
+  - "0.55"
+  - "0.60"
+  - --pilot_n_chains
+  - "4"
+  - --pilot_chain_length
+  - "120"
+  - --output_dir
+  - results/metric_assessment_sweep_gridA
+  - --skip_fid
+  - --wandb_group
+  - metric_assessment_matched_gridA
+  - --wandb_name_mode
+  - auto

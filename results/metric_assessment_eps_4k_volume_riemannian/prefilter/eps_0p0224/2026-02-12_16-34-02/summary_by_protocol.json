@@ -1,0 +1,262 @@
+{
+  "metadata": {
+    "created_at": "2026-02-12T16:34:53.147039",
+    "device": "cpu",
+    "protocols": [
+      "matched"
+    ],
+    "sampling_seeds": [
+      13,
+      29
+    ],
+    "profile": "smoke",
+    "run_quality": false,
+    "run_fid": false,
+    "aniso_only": true,
+    "skip_matched_pilot": true,
+    "quick_mode": true,
+    "save_plots": false,
+    "wandb_enabled": false
+  },
+  "summary": {
+    "matched": {
+      "baseline": {
+        "n_rows": 0,
+        "metrics": {
+          "acceptance_mean": null,
+          "dh_p95_abs": null,
+          "h_drift_slope_abs_mean": null,
+          "ess_norm_min": null,
+          "iact_median": null,
+          "coverage_local": null,
+          "rescue_rate": null,
+          "median_steps_to_manifold": null,
+          "plateau_fraction": null,
+          "tangent_alignment_mean": null,
+          "rescue_directionality_mean": null,
+          "border_overshoot_index": null,
+          "alignment_mean": null,
+          "quality_precision": null,
+          "quality_recall": null,
+          "quality_diversity": null,
+          "fid": null
+        }
+      },
+      "aniso": {
+        "n_rows": 2,
+        "metrics": {
+          "acceptance_mean": {
+            "mean": 0.8333333333333333,
+            "std": 0.16666666666666669,
+            "ci95_low": 0.6666666666666666,
+            "ci95_high": 1.0,
+            "n": 2
+          },
+          "dh_p95_abs": {
+            "mean": 0.01226205825805664,
+            "std": 0.007806777954101561,
+            "ci95_low": 0.004455280303955078,
+            "ci95_high": 0.0200688362121582,
+            "n": 2
+          },
+          "h_drift_slope_abs_mean": {
+            "mean": 0.12424879074096692,
+            "std": 0.08027911186218288,
+            "ci95_low": 0.043969678878784044,
+            "ci95_high": 0.20452790260314982,
+            "n": 2
+          },
+          "ess_norm_min": {
+            "mean": 1000.0,
+            "std": 0.0,
+            "ci95_low": 1000.0,
+            "ci95_high": 1000.0,
+            "n": 2
+          },
+          "iact_median": {
+            "mean": 1.0,
+            "std": 0.0,
+            "ci95_low": 1.0,
+            "ci95_high": 1.0,
+            "n": 2
+          },
+          "coverage_local": {
+            "mean": 0.0,
+            "std": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.0,
+            "n": 2
+          },
+          "rescue_rate": {
+            "mean": 0.25,
+            "std": 0.25,
+            "ci95_low": 0.0,
+            "ci95_high": 0.5,
+            "n": 2
+          },
+          "median_steps_to_manifold": {
+            "mean": 4.0,
+            "std": 3.0,
+            "ci95_low": 1.0,
+            "ci95_high": 7.0,
+            "n": 2
+          },
+          "plateau_fraction": {
+            "mean": 0.0,
+            "std": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.0,
+            "n": 2
+          },
+          "tangent_alignment_mean": {
+            "mean": 0.7624984085559845,
+            "std": 0.001921921968460083,
+            "ci95_low": 0.7605764865875244,
+            "ci95_high": 0.7644203305244446,
+            "n": 2
+          },
+          "rescue_directionality_mean": {
+            "mean": 0.9999926367567018,
+            "std": 7.360847736392895e-06,
+            "ci95_low": 0.9999852759089655,
+            "ci95_high": 0.9999999976044383,
+            "n": 2
+          },
+          "border_overshoot_index": {
+            "mean": -1.0746855735778809,
+            "std": 0.0,
+            "ci95_low": -1.0746855735778809,
+            "ci95_high": -1.0746855735778809,
+            "n": 1
+          },
+          "alignment_mean": {
+            "mean": 0.9999926367567018,
+            "std": 7.360847736392895e-06,
+            "ci95_low": 0.9999852759089655,
+            "ci95_high": 0.9999999976044383,
+            "n": 2
+          },
+          "quality_precision": null,
+          "quality_recall": null,
+          "quality_diversity": null,
+          "fid": null
+        },
+        "sampler_config": {
+          "sampler_name": "volume_riemannian",
+          "exact": true,
+          "volume_power": 0.8,
+          "n_lf": 10,
+          "eps_lf": 0.0224,
+          "momentum_persist": 0.0,
+          "fp_steps": 3,
+          "fp_damping": 0.7129
+        }
+      }
+    }
+  },
+  "ranking": {
+    "matched": {
+      "aniso": {
+        "protocol": "matched",
+        "model_key": "aniso",
+        "n_seeds": 2,
+        "hard_reject": true,
+        "reject_reasons": [
+          "h_drift_slope_abs_mean"
+        ],
+        "primary_green_count": 4,
+        "primary_n_total": 7,
+        "tiebreak_tangent_alignment_mean": 0.7624984085559845,
+        "tiebreak_rescue_rate": 0.25,
+        "tiebreak_coverage_local": 0.0,
+        "iqr_noise_penalty": 0.46456132611659945,
+        "metrics": {
+          "acceptance_mean": {
+            "median": 0.8333333333333333,
+            "iqr": 0.16666666666666663,
+            "n": 2.0
+          },
+          "border_overshoot_index": {
+            "median": -1.0746855735778809,
+            "iqr": 0.0,
+            "n": 1.0
+          },
+          "coverage_local": {
+            "median": 0.0,
+            "iqr": 0.0,
+            "n": 2.0
+          },
+          "dh_p95_abs": {
+            "median": 0.01226205825805664,
+            "iqr": 0.007806777954101561,
+            "n": 2.0
+          },
+          "h_drift_slope_abs_mean": {
+            "median": 0.12424879074096692,
+            "iqr": 0.08027911186218288,
+            "n": 2.0
+          },
+          "median_steps_to_manifold": {
+            "median": 4.0,
+            "iqr": 3.0,
+            "n": 2.0
+          },
+          "plateau_fraction": {
+            "median": 0.0,
+            "iqr": 0.0,
+            "n": 2.0
+          },
+          "rescue_directionality_mean": {
+            "median": 0.9999926367567018,
+            "iqr": 7.360847736337384e-06,
+            "n": 2.0
+          },
+          "rescue_rate": {
+            "median": 0.25,
+            "iqr": 0.25,
+            "n": 2.0
+          },
+          "tangent_alignment_mean": {
+            "median": 0.7624984085559845,
+            "iqr": 0.001921921968460083,
+            "n": 2.0
+          }
+        },
+        "statuses": {
+          "acceptance_mean": "green",
+          "border_overshoot_index": "green",
+          "coverage_local": "red",
+          "dh_p95_abs": "green",
+          "h_drift_slope_abs_mean": "red",
+          "median_steps_to_manifold": "green",
+          "plateau_fraction": "green",
+          "rescue_directionality_mean": "green",
+          "rescue_rate": "red",
+          "tangent_alignment_mean": "yellow"
+        }
+      }
+    }
+  },
+  "sweep_objectives": {
+    "objective_metric_core4_v1": 1.5312460213899612,
+    "objective_full_kpi_v1": -2.133176978996822,
+    "core4_green_count": 3.0,
+    "core4_n_total": 4.0
+  },
+  "model_run_bilan": [
+    {
+      "model_key": "aniso",
+      "model_path": "outputs/reference_models/4K",
+      "train_loss_last": 16.626604080200195,
+      "train_loss_best": 16.626604080200195,
+      "train_recon_last": 10.48025894165039,
+      "train_recon_best": 9.862181186676025,
+      "val_loss_last": 16.754934310913086,
+      "val_loss_best": 16.754934310913086,
+      "val_recon_last": 10.472460746765137,
+      "val_recon_best": 9.223734855651855,
+      "epochs": 40.0
+    }
+  ],
+  "claim": null
+}

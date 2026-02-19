@@ -1,0 +1,83 @@
+{
+  "args": {
+    "model_path": "outputs/reference_models/4K",
+    "output_dir": "results/rhmc_three_zone_real_metric",
+    "dims": "0,1",
+    "seed": 13,
+    "volume_power": 0.8,
+    "steps": 120,
+    "n_lf_inner": 6,
+    "eps": 0.02,
+    "integrator": "implicit",
+    "fp_steps": 3,
+    "fp_damping": 0.72,
+    "manifold_points": 3,
+    "near_multiplier": 1.2,
+    "far_multiplier": 2.4,
+    "max_radius": 45.0,
+    "grid_n": 180,
+    "use_dual_metric": false,
+    "no_metropolis": true
+  },
+  "dims": [
+    0,
+    1
+  ],
+  "trajectories": [
+    {
+      "name": "manifold_1",
+      "accept_rate": 1.0,
+      "escaped": false,
+      "escape_step": -1,
+      "distance_start": 0.0,
+      "distance_end": 0.30230721831321716,
+      "logdet_inv_start": 5.293322563171387,
+      "logdet_inv_end": 3.786878824234009,
+      "speed_mean": 15.049282923837502
+    },
+    {
+      "name": "manifold_2",
+      "accept_rate": 1.0,
+      "escaped": false,
+      "escape_step": -1,
+      "distance_start": 0.0,
+      "distance_end": 0.5420441031455994,
+      "logdet_inv_start": 5.283873558044434,
+      "logdet_inv_end": 4.479646682739258,
+      "speed_mean": 16.03738241493702
+    },
+    {
+      "name": "manifold_3",
+      "accept_rate": 1.0,
+      "escaped": false,
+      "escape_step": -1,
+      "distance_start": 0.0,
+      "distance_end": 3.147418737411499,
+      "logdet_inv_start": 5.235368728637695,
+      "logdet_inv_end": 1.7073756456375122,
+      "speed_mean": 6.156607281044126
+    },
+    {
+      "name": "near_outside",
+      "accept_rate": 1.0,
+      "escaped": false,
+      "escape_step": -1,
+      "distance_start": 1.0229527950286865,
+      "distance_end": 2.721426010131836,
+      "logdet_inv_start": 1.8173024654388428,
+      "logdet_inv_end": 1.7339012622833252,
+      "speed_mean": 12.421772316594918
+    },
+    {
+      "name": "far_outside",
+      "accept_rate": 1.0,
+      "escaped": false,
+      "escape_step": -1,
+      "distance_start": 7.160667896270752,
+      "distance_end": 4.37724494934082,
+      "logdet_inv_start": 1.3525820970535278,
+      "logdet_inv_end": 1.6141023635864258,
+      "speed_mean": 16.998928852627675
+    }
+  ]
+}

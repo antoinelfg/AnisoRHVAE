@@ -1,0 +1,9 @@
+[sweep] START scale=0.25 model_id=aniso_gwell_ts0p25
+[sweep] END scale=0.25 rc=1 log=results/temp_scale_sweep/2026-02-16_13-57-51/aniso_gwell_ts0p25.log
+[sweep] START scale=0.5 model_id=aniso_gwell_ts0p5
+[sweep] END scale=0.5 rc=0 log=results/temp_scale_sweep/2026-02-16_13-57-51/aniso_gwell_ts0p5.log
+[sweep] START scale=1.0 model_id=aniso_gwell_ts1p0
+[sweep] END scale=1.0 rc=0 log=results/temp_scale_sweep/2026-02-16_13-57-51/aniso_gwell_ts1p0.log
+[sweep] START scale=2.0 model_id=aniso_gwell_ts2p0
+[sweep] END scale=2.0 rc=0 log=results/temp_scale_sweep/2026-02-16_13-57-51/aniso_gwell_ts2p0.log
+[sweep] DONE

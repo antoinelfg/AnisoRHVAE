@@ -1,0 +1,25 @@
+{
+  "multi_start": {
+    "n_centroid_chains": 8,
+    "n_gaussian_chains": 4,
+    "n_grid_chains": 9
+  },
+  "interpolation": {
+    "methods": [
+      "linear",
+      "slerp",
+      "geodesic",
+      "metric_weighted"
+    ],
+    "n_pairs": 4
+  },
+  "rhmc": {
+    "mean_acceptance": 0.9975,
+    "acceptance_rates": [
+      0.995,
+      1.0,
+      0.995,
+      1.0
+    ]
+  }
+}

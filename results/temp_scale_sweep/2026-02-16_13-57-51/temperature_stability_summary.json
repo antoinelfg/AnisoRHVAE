@@ -1,0 +1,91 @@
+{
+  "auto_scale_sweep": [
+    {
+      "scale": "0.25",
+      "status": "failed",
+      "run_dir": "outputs/toy2d_temp_sweep/moons_v1/aniso_gwell_ts0p25/N500/seed013/2026-02-16_13-57-58"
+    },
+    {
+      "scale": "0.5",
+      "status": "ok",
+      "run_dir": "outputs/toy2d_temp_sweep/moons_v1/aniso_gwell_ts0p5/N500/seed013/2026-02-16_13-59-40",
+      "final_train_loss": 2.018526037534078,
+      "final_val_loss": 3.061942558288574,
+      "best_val_loss": 2.7190621089935303,
+      "epochs_logged": 60,
+      "temp_start": 0.005197571124881506,
+      "temp_end": 0.0018553865374997258,
+      "temp_min": 0.0018553865374997258,
+      "temp_max": 0.005197571124881506,
+      "grid_cond_max": 1472.7962646484375,
+      "grid_cond_p95": 1145.7598571777337,
+      "grid_cond_mean": 390.8408508300781,
+      "grid_eig_min_min": 0.101716049015522,
+      "grid_eig_max_max": 150.1880340576172,
+      "grid_logdet_min": -2.101999044418335,
+      "grid_logdet_max": 2.72885799407959
+    },
+    {
+      "scale": "1.0",
+      "status": "ok",
+      "run_dir": "outputs/toy2d_temp_sweep/moons_v1/aniso_gwell_ts1p0/N500/seed013/2026-02-16_14-01-22",
+      "final_train_loss": 2.179906209309896,
+      "final_val_loss": 3.245313882827759,
+      "best_val_loss": 2.932451868057251,
+      "epochs_logged": 60,
+      "temp_start": 0.010395142249763012,
+      "temp_end": 0.0026078640948981047,
+      "temp_min": 0.0024169546086341143,
+      "temp_max": 0.010395142249763012,
+      "grid_cond_max": 1255.4268798828125,
+      "grid_cond_p95": 972.2628753662104,
+      "grid_cond_mean": 368.279052734375,
+      "grid_eig_min_min": 0.10219559073448181,
+      "grid_eig_max_max": 129.40582275390625,
+      "grid_logdet_min": -2.303096294403076,
+      "grid_logdet_max": 2.590712785720825
+    },
+    {
+      "scale": "2.0",
+      "status": "ok",
+      "run_dir": "outputs/toy2d_temp_sweep/moons_v1/aniso_gwell_ts2p0/N500/seed013/2026-02-16_14-03-05",
+      "final_train_loss": 2.0308732986450195,
+      "final_val_loss": 3.073708438873291,
+      "best_val_loss": 2.8496955490112303,
+      "epochs_logged": 60,
+      "temp_start": 0.020790284499526024,
+      "temp_end": 0.005654273554682732,
+      "temp_min": 0.005121627356857061,
+      "temp_max": 0.020790284499526024,
+      "grid_cond_max": 1277.5899658203125,
+      "grid_cond_p95": 972.4074584960937,
+      "grid_cond_mean": 352.8644104003906,
+      "grid_eig_min_min": 0.0949106365442276,
+      "grid_eig_max_max": 131.1888427734375,
+      "grid_logdet_min": -4.167690277099609,
+      "grid_logdet_max": 2.6051669120788574
+    }
+  ],
+  "fixed_temp_controls": [
+    {
+      "scale": "fixed_0p05",
+      "status": "ok",
+      "run_dir": "outputs/toy2d_temp_sweep/moons_v1/aniso_gwell_fixedT0p05/N500/seed013/2026-02-16_14-06-22",
+      "final_train_loss": 1.6084370613098145,
+      "final_val_loss": 2.7833976268768312,
+      "best_val_loss": 2.5422776889801026,
+      "epochs_logged": 60,
+      "temp_end": 0.05000000074505806
+    },
+    {
+      "scale": "fixed_0p5",
+      "status": "ok",
+      "run_dir": "outputs/toy2d_temp_sweep/moons_v1/aniso_gwell_fixedT0p5/N500/seed013/2026-02-16_14-07-52",
+      "final_train_loss": -1.322897990544637,
+      "final_val_loss": -1.4117142581939697,
+      "best_val_loss": -1.52099449634552,
+      "epochs_logged": 60,
+      "temp_end": 0.5
+    }
+  ]
+}

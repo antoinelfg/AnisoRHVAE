@@ -1,0 +1,66 @@
+{
+  "created_at": "2026-02-12T21:30:17Z",
+  "datasets": [
+    {
+      "dataset_id": "rotmnist_v1",
+      "files": [
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/rotmnist/v1/train.pt",
+          "exists": true,
+          "relative_path": "data/processed/rotmnist/v1/train.pt",
+          "sha256": "18c035ae75b456b71aafcde8598ef270dbf27b243f0bbecdea15ebcf180910fd",
+          "size_bytes": 157401935
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/rotmnist/v1/val.pt",
+          "exists": true,
+          "relative_path": "data/processed/rotmnist/v1/val.pt",
+          "sha256": "900523da39d31a8066f261213439bceed9e2d360f300633481c74073eed04851",
+          "size_bytes": 31481917
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/rotmnist/v1/test.pt",
+          "exists": true,
+          "relative_path": "data/processed/rotmnist/v1/test.pt",
+          "sha256": "8b26aadcaa83fdfc1a5cc6d18e8cdaf7314bc15d0ffb1da162891a33e54fb081",
+          "size_bytes": 31481926
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/rotmnist/v1/metadata.json",
+          "exists": true,
+          "relative_path": "data/processed/rotmnist/v1/metadata.json",
+          "sha256": "ddfc9098eb38fcb7915afc760049e73b20092838d35a7347e35880066d7b3269",
+          "size_bytes": 2725
+        }
+      ],
+      "processed_dir": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/rotmnist/v1",
+      "split_definition": {
+        "angle_distribution": "uniform_0_360",
+        "angles_seed": 13,
+        "num_classes": 10,
+        "precompute_rotations": true,
+        "random_seed": 13,
+        "test_size": 10000,
+        "train_size": 50000,
+        "val_size": 10000
+      },
+      "status": "ready",
+      "subset_definition": {
+        "stratified": true,
+        "subset_ns": [
+          50,
+          100,
+          500
+        ],
+        "subset_seeds": [
+          13,
+          29,
+          47,
+          71,
+          89
+        ]
+      }
+    }
+  ],
+  "verify_only": false
+}

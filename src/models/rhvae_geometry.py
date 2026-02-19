@@ -76,6 +76,10 @@ class GeometryRHVAEConfig(RHVAEConfig):
     radial_stretch: float = 10.0  # beta
     transition_steepness: float = 5.0
     target_anisotropy: float | None = None
+    void_eigshape_mode: str = "none"  # none | det_preserving_spectral
+    void_eigshape_alpha_min: float = 1.0
+    void_eigshape_power: float = -1.0
+    void_eigshape_eig_floor: float = 1e-8
 
     kernel_type: str = "isotropic"
     precision_jitter: float = 1e-6
@@ -85,8 +89,8 @@ class GeometryRHVAEConfig(RHVAEConfig):
 
     # RHMC integrator control (training)
     rhmc_integrator: str = "explicit"  # explicit | implicit
-    rhmc_fp_steps: int = 6
-    rhmc_fp_damping: float = 0.5
+    rhmc_fp_steps: int = 15
+    rhmc_fp_damping: float = 0.7
 
     @classmethod
     def from_physics(
@@ -150,6 +154,18 @@ class GeometryRHVAE(RHVAE):
         self.void_decay_softplus_k = float(model_config.void_decay_softplus_k)
         self.radial_stretch = float(model_config.radial_stretch)
         self.transition_steepness = float(model_config.transition_steepness)
+        self.void_eigshape_mode = str(
+            getattr(model_config, "void_eigshape_mode", "none")
+        ).lower()
+        self.void_eigshape_alpha_min = float(
+            getattr(model_config, "void_eigshape_alpha_min", 1.0)
+        )
+        self.void_eigshape_power = float(
+            getattr(model_config, "void_eigshape_power", -1.0)
+        )
+        self.void_eigshape_eig_floor = float(
+            getattr(model_config, "void_eigshape_eig_floor", 1e-8)
+        )
         self.target_anisotropy = (
             None
             if model_config.target_anisotropy is None
@@ -177,8 +193,18 @@ class GeometryRHVAE(RHVAE):
             raise ValueError("atom_norm must be 'none', 'trace', or 'det'")
         if self.void_decay_type not in {"none", "invquad"}:
             raise ValueError("void_decay_type must be 'none' or 'invquad'")
+        if self.void_eigshape_mode not in {"none", "det_preserving_spectral"}:
+            raise ValueError(
+                "void_eigshape_mode must be 'none' or 'det_preserving_spectral'"
+            )
         if self.void_weight_threshold > 0 and self.void_weight_threshold >= 1:
             raise ValueError("void_weight_threshold must be in (0, 1)")
+        if not (0.0 <= self.void_eigshape_alpha_min <= 1.0):
+            raise ValueError("void_eigshape_alpha_min must be in [0, 1]")
+        if self.void_eigshape_eig_floor <= 0:
+            raise ValueError("void_eigshape_eig_floor must be > 0")
+        if not math.isfinite(self.void_eigshape_power):
+            raise ValueError("void_eigshape_power must be finite")
         if self.void_decay_type != "none":
             if self.void_decay_scale <= 0:
                 raise ValueError("void_decay_scale must be > 0")
@@ -343,6 +369,41 @@ class GeometryRHVAE(RHVAE):
         eye = torch.eye(self.latent_dim, device=z.device, dtype=z.dtype).unsqueeze(0)
         return beta * radial_uu_t + self.lbd.to(device=z.device, dtype=z.dtype) * eye
 
+    @staticmethod
+    def _det_preserving_eigshape(
+        mats: torch.Tensor,
+        power: float,
+        eig_floor: float,
+    ) -> torch.Tensor:
+        """Reshape eigenvalues while preserving determinant per matrix.
+
+        λ'_i = g * (λ_i / g)^s with g = exp(mean(log λ)).
+        """
+        mats = 0.5 * (mats + mats.transpose(-1, -2))
+        evals, evecs = torch.linalg.eigh(mats)
+        evals = torch.clamp(evals, min=float(eig_floor))
+        log_g = torch.mean(torch.log(evals), dim=-1, keepdim=True)
+        g = torch.exp(log_g)
+        evals_new = g * torch.pow(evals / g, float(power))
+        out = evecs @ torch.diag_embed(evals_new) @ evecs.transpose(-1, -2)
+        return 0.5 * (out + out.transpose(-1, -2))
+
+    def _apply_void_eigshape(self, void: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor:
+        """Apply optional determinant-preserving spectral reshaping in high-alpha void."""
+        if self.void_eigshape_mode == "none":
+            return void
+        alpha_flat = alpha.reshape(void.shape[0], -1)[:, 0]
+        mask = alpha_flat >= float(self.void_eigshape_alpha_min)
+        if not bool(mask.any()):
+            return void
+        out = void.clone()
+        out[mask] = self._det_preserving_eigshape(
+            out[mask],
+            power=float(self.void_eigshape_power),
+            eig_floor=float(self.void_eigshape_eig_floor),
+        )
+        return 0.5 * (out + out.transpose(-1, -2))
+
     def _compute_inverse_metric_at_z(self, z: torch.Tensor) -> torch.Tensor:
         base = self._compute_base_inverse_metric(z)
         base = self._stabilize_metric(base)
@@ -365,7 +426,9 @@ class GeometryRHVAE(RHVAE):
         term_trans = self.lbd.to(device=z.device, dtype=z.dtype) * decay_transverse * eye
         void = term_long + term_trans
 
-        alpha = self._compute_alpha(min_dists_eucl).view(-1, 1, 1)
+        alpha = self._compute_alpha(min_dists_eucl)
+        void = self._apply_void_eigshape(void, alpha)
+        alpha = alpha.view(-1, 1, 1)
         blended = (1.0 - alpha) * base + alpha * void
         return self._stabilize_metric(blended)
 
@@ -493,7 +556,9 @@ class GeometryRHVAE(RHVAE):
         term_trans = self.lbd.to(device=z.device, dtype=z.dtype) * decay_transverse * eye
         void = term_long + term_trans
 
-        alpha = self._compute_alpha(min_dists_eucl).view(-1, 1, 1)
+        alpha = self._compute_alpha(min_dists_eucl)
+        void = self._apply_void_eigshape(void, alpha)
+        alpha = alpha.view(-1, 1, 1)
         blended = (1.0 - alpha) * base + alpha * void
         return self._stabilize_metric(blended)
 

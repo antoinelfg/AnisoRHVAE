@@ -1,0 +1,20 @@
+{
+  "matched": {
+    "aniso": {
+      "sampler_name": "hybrid_volume_mix",
+      "exact": true,
+      "volume_power": 0.8,
+      "n_lf": 10,
+      "eps_lf": 0.03,
+      "momentum_persist": 0.7,
+      "eps_jitter": 0.15,
+      "n_lf_jitter": 2,
+      "fp_steps": 3,
+      "fp_damping": 0.72,
+      "radial_prior_weight": 0.01,
+      "hybrid_explore_steps": 3,
+      "hybrid_rescue_steps": 1,
+      "effective_volume_exponent": NaN
+    }
+  }
+}

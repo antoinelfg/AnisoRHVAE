@@ -1,0 +1,38 @@
+program: scripts/rhmc_chain_demo.py
+method: bayes
+metric:
+  name: diag/score
+  goal: maximize
+parameters:
+  sampler:
+    values: ["volume_riemannian"]
+  chain_length:
+    value: 20
+  n_lf:
+    values: [20, 40, 60]
+  eps_lf:
+    min: 0.002
+    max: 0.01
+  fp_steps:
+    values: [8, 12, 16]
+  fp_damping:
+    values: [0.6, 0.7, 0.8]
+  volume_power:
+    values: [0.5, 1.0, 1.5]
+  momentum_persist:
+    values: [0.0, 0.8]
+  kinetic_mode:
+    value: trace_ginv
+  score_target_accept:
+    value: 0.8
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - --model_path
+  - outputs/pythae_rhvae_baseline/2026-01-29_17-11-14
+  - --exact
+  - --skip_energy_maps
+  - --skip_conservation
+  - --out=outputs/rhmc_sweep_test.png
+  - ${args}

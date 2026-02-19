@@ -1,0 +1,60 @@
+# GeometryRHVAE: moderate decay + border fix (reduce log-det spike at manifold boundary)
+
+# === TRAINING ===
+epochs: 100
+batch_size: 64
+lr: 0.0005
+seed: 42
+
+# === DATA ===
+num_sequences: 200
+max_frames: 3000
+frame_mode: t0
+
+# === MODEL ARCHITECTURE ===
+latent_dim: 2
+n_centroids: 100
+rhvae_variant: geometry
+
+# === METRIC CONFIGURATION ===
+use_attractor: true
+kernel_type: mahalanobis
+atom_norm: trace
+atom_power: 1.0
+kernel_power: 1.0
+precision_jitter: 0.02
+
+# === TEMPERATURE & REGULARIZATION ===
+temperature: 0.8
+regularization: 0.8
+
+# === VOID/MANIFOLD BOUNDARY ===
+void_threshold: 4.8
+void_weight_threshold: -1.0
+transition_steepness: 6.0
+radial_stretch: 12.0
+
+# === VOID DECAY (gradient alive, avoid plateau) ===
+void_decay_type: invquad
+void_decay_scale: 12.0
+void_decay_power: 1.0
+void_decay_softplus_k: 5.0
+
+# === ATTRACTOR CONFIGURATION ===
+attractor_metric: mahalanobis
+attractor_smoothness: hard
+attractor_use_det: true
+attractor_k_nearest: 1
+attractor_gamma: 8.0
+attractor_bias_energy: 25.0
+
+# === ANALYSIS / SAMPLING ===
+analysis_rhmc_sampler: volume
+skip_sampling_diagnostics: true
+sampling_fid_samples: 200
+sampling_fid_samplers: [gaussian, volume]
+sampling_n_starts: 12
+sampling_n_interp_pairs: 4
+sampling_quality_samples: 200
+sampling_n_chains: 4
+sampling_chain_length: 100

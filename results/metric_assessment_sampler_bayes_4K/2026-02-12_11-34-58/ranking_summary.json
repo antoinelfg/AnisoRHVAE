@@ -1,0 +1,83 @@
+{
+  "matched": {
+    "aniso": {
+      "protocol": "matched",
+      "model_key": "aniso",
+      "n_seeds": 3,
+      "hard_reject": true,
+      "reject_reasons": [
+        "h_drift_slope_abs_mean"
+      ],
+      "primary_green_count": 4,
+      "primary_n_total": 7,
+      "tiebreak_tangent_alignment_mean": 0.7398717403411865,
+      "tiebreak_rescue_rate": 0.25,
+      "tiebreak_coverage_local": 0.0859375,
+      "iqr_noise_penalty": 1.8030462280378468,
+      "metrics": {
+        "acceptance_mean": {
+          "median": 0.95,
+          "iqr": 0.02499999999999991,
+          "n": 3.0
+        },
+        "border_overshoot_index": {
+          "median": -1.4160537719726562,
+          "iqr": 2.2525022625923157,
+          "n": 3.0
+        },
+        "coverage_local": {
+          "median": 0.0859375,
+          "iqr": 0.0390625,
+          "n": 3.0
+        },
+        "dh_p95_abs": {
+          "median": 0.6417914748191823,
+          "iqr": 0.5326199114322661,
+          "n": 3.0
+        },
+        "h_drift_slope_abs_mean": {
+          "median": 0.08715330488246205,
+          "iqr": 0.014453297091585715,
+          "n": 3.0
+        },
+        "median_steps_to_manifold": {
+          "median": 12.0,
+          "iqr": 10.0,
+          "n": 3.0
+        },
+        "plateau_fraction": {
+          "median": 0.0,
+          "iqr": 0.041666666666666664,
+          "n": 3.0
+        },
+        "rescue_directionality_mean": {
+          "median": 0.983799542896505,
+          "iqr": 0.016013414488245115,
+          "n": 3.0
+        },
+        "rescue_rate": {
+          "median": 0.25,
+          "iqr": 0.25,
+          "n": 3.0
+        },
+        "tangent_alignment_mean": {
+          "median": 0.7398717403411865,
+          "iqr": 0.022078752517700195,
+          "n": 3.0
+        }
+      },
+      "statuses": {
+        "acceptance_mean": "yellow",
+        "border_overshoot_index": "green",
+        "coverage_local": "red",
+        "dh_p95_abs": "green",
+        "h_drift_slope_abs_mean": "red",
+        "median_steps_to_manifold": "green",
+        "plateau_fraction": "green",
+        "rescue_directionality_mean": "green",
+        "rescue_rate": "red",
+        "tangent_alignment_mean": "red"
+      }
+    }
+  }
+}

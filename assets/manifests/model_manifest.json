@@ -1,0 +1,171 @@
+{
+  "allow_wandb": true,
+  "created_at": "2026-02-12T21:30:17Z",
+  "models": [
+    {
+      "alias_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/aniso/N500/seed013/2026-02-12_20-11-12",
+      "files": [
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/aniso/N500/seed013/2026-02-12_20-11-12/rhvae_model.pt",
+          "exists": true,
+          "relative_path": "rhvae_model.pt",
+          "sha256": "dea8dfe2f5d8495f613986a23bf3d940e414ca41e3256bd97094629dc8c716ce",
+          "size_bytes": 4798478
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/aniso/N500/seed013/2026-02-12_20-11-12/rhvae_metric.pt",
+          "exists": true,
+          "relative_path": "rhvae_metric.pt",
+          "sha256": "91eb2862afcb2702294c4b96ed071d7ebe650fc93a08e395bca1c55f931ddfe3",
+          "size_bytes": 4109
+        }
+      ],
+      "model_family": "rhvae_aniso",
+      "model_id": "aniso",
+      "required_files": [
+        "rhvae_model.pt",
+        "rhvae_metric.pt"
+      ],
+      "resolved_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/aniso/N500/seed013/2026-02-12_20-11-12",
+      "source": "alias_existing",
+      "status": "ready",
+      "train_if_missing": false
+    },
+    {
+      "alias_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/rhvae_standard/N500/seed013/2026-02-12_20-15-04",
+      "files": [
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/rhvae_standard/N500/seed013/2026-02-12_20-15-04/rhvae_model.pt",
+          "exists": true,
+          "relative_path": "rhvae_model.pt",
+          "sha256": "0b3d7e0f4e72868c2cf347ae8312a053de089346227caa6df693c61877c2c930",
+          "size_bytes": 4798478
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/rhvae_standard/N500/seed013/2026-02-12_20-15-04/rhvae_metric.pt",
+          "exists": true,
+          "relative_path": "rhvae_metric.pt",
+          "sha256": "e4eb7eff549fa2a58d971ab304b3d66d6c71904c4dc22ca9814b90a10253e2e3",
+          "size_bytes": 3341
+        }
+      ],
+      "model_family": "rhvae_standard",
+      "model_id": "rhvae_standard",
+      "required_files": [
+        "rhvae_model.pt",
+        "rhvae_metric.pt"
+      ],
+      "resolved_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/rhvae_standard/N500/seed013/2026-02-12_20-15-04",
+      "source": "alias_existing",
+      "status": "ready",
+      "train_if_missing": false
+    },
+    {
+      "alias_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/vanilla_vae/N500/seed013/2026-02-12_20-15-18",
+      "files": [
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/vanilla_vae/N500/seed013/2026-02-12_20-15-18/model.pt",
+          "exists": true,
+          "relative_path": "model.pt",
+          "sha256": "59689600bc2e267ea91f4c9fb3c9b26580cee3a88ff99e33ba97acfd8c66d506",
+          "size_bytes": 5422865
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/vanilla_vae/N500/seed013/2026-02-12_20-15-18/config.json",
+          "exists": true,
+          "relative_path": "config.json",
+          "sha256": "7e727528628d6fd2db1306ea7609349d2786a2432d9626cf481bd316039249c3",
+          "size_bytes": 169
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/vanilla_vae/N500/seed013/2026-02-12_20-15-18/train_data.pt",
+          "exists": true,
+          "relative_path": "train_data.pt",
+          "sha256": "d3b056560160a5dfd697ca15f9f88424616881dc27896d9f7e8ce2625a2615cb",
+          "size_bytes": 1575421
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/vanilla_vae/N500/seed013/2026-02-12_20-15-18/metrics.json",
+          "exists": true,
+          "relative_path": "metrics.json",
+          "sha256": "4be46254d68e3b345469cf6ad11d35622c8ef229d94f1915e9718d60969bf947",
+          "size_bytes": 2330
+        }
+      ],
+      "model_family": "vanilla_vae",
+      "model_id": "vanilla_vae",
+      "required_files": [
+        "model.pt",
+        "config.json",
+        "train_data.pt",
+        "metrics.json"
+      ],
+      "resolved_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/vanilla_vae/N500/seed013/2026-02-12_20-15-18",
+      "source": "alias_existing",
+      "status": "ready",
+      "train_if_missing": true
+    },
+    {
+      "alias_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/ebm_conformal/N500/seed013/2026-02-12_20-15-27",
+      "files": [
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/ebm_conformal/N500/seed013/2026-02-12_20-15-27/encoder.pt",
+          "exists": true,
+          "relative_path": "encoder.pt",
+          "sha256": "43cd36b75481d8460894e202c2e8cf3c106d8fcd1f3429e246d09ffb1ed5fae9",
+          "size_bytes": 2694037
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/ebm_conformal/N500/seed013/2026-02-12_20-15-27/decoder.pt",
+          "exists": true,
+          "relative_path": "decoder.pt",
+          "sha256": "c6f8f3be10723b526ab8dfa464e0e69764c3bdcbb2dce582331357e92a105e68",
+          "size_bytes": 2697109
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/ebm_conformal/N500/seed013/2026-02-12_20-15-27/ebm.pt",
+          "exists": true,
+          "relative_path": "ebm.pt",
+          "sha256": "e9dab6959354062614b4d9ea4afd9261587c0de16450527936c4196d0f1fdc5e",
+          "size_bytes": 284453
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/ebm_conformal/N500/seed013/2026-02-12_20-15-27/config.json",
+          "exists": true,
+          "relative_path": "config.json",
+          "sha256": "a5562570bc9486e3099a9ff504888c60d7527d855e819c25220cb7b3002ed076",
+          "size_bytes": 223
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/ebm_conformal/N500/seed013/2026-02-12_20-15-27/train_data.pt",
+          "exists": true,
+          "relative_path": "train_data.pt",
+          "sha256": "d3b056560160a5dfd697ca15f9f88424616881dc27896d9f7e8ce2625a2615cb",
+          "size_bytes": 1575421
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/ebm_conformal/N500/seed013/2026-02-12_20-15-27/metrics.json",
+          "exists": true,
+          "relative_path": "metrics.json",
+          "sha256": "ecc03e8cf54452ac4ef16d842a18e8c36c2bb56fea7fbb853825288aca226762",
+          "size_bytes": 618
+        }
+      ],
+      "model_family": "ebm_conformal",
+      "model_id": "ebm_conformal",
+      "required_files": [
+        "encoder.pt",
+        "decoder.pt",
+        "ebm.pt",
+        "config.json",
+        "train_data.pt",
+        "metrics.json"
+      ],
+      "resolved_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/rotmnist_v1/ebm_conformal/N500/seed013/2026-02-12_20-15-27",
+      "source": "alias_existing",
+      "status": "ready",
+      "train_if_missing": true
+    }
+  ],
+  "verify_only": false
+}

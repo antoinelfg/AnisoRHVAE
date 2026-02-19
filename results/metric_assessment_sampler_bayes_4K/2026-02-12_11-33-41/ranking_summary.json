@@ -1,0 +1,83 @@
+{
+  "matched": {
+    "aniso": {
+      "protocol": "matched",
+      "model_key": "aniso",
+      "n_seeds": 3,
+      "hard_reject": true,
+      "reject_reasons": [
+        "dh_p95_abs"
+      ],
+      "primary_green_count": 4,
+      "primary_n_total": 7,
+      "tiebreak_tangent_alignment_mean": 0.7398717403411865,
+      "tiebreak_rescue_rate": 0.5,
+      "tiebreak_coverage_local": 0.109375,
+      "iqr_noise_penalty": 1.8162771483007878,
+      "metrics": {
+        "acceptance_mean": {
+          "median": 0.65,
+          "iqr": 0.21250000000000002,
+          "n": 3.0
+        },
+        "border_overshoot_index": {
+          "median": -2.4187631607055664,
+          "iqr": 1.9782835245132446,
+          "n": 3.0
+        },
+        "coverage_local": {
+          "median": 0.109375,
+          "iqr": 0.015625,
+          "n": 3.0
+        },
+        "dh_p95_abs": {
+          "median": 4.279742622375488,
+          "iqr": 0.9590173244476334,
+          "n": 3.0
+        },
+        "h_drift_slope_abs_mean": {
+          "median": 0.005602601253997145,
+          "iqr": 0.0678923863624816,
+          "n": 3.0
+        },
+        "median_steps_to_manifold": {
+          "median": 4.0,
+          "iqr": 10.25,
+          "n": 3.0
+        },
+        "plateau_fraction": {
+          "median": 0.0,
+          "iqr": 0.047619047619047616,
+          "n": 3.0
+        },
+        "rescue_directionality_mean": {
+          "median": 0.9429804473069884,
+          "iqr": 0.0253337134555226,
+          "n": 3.0
+        },
+        "rescue_rate": {
+          "median": 0.5,
+          "iqr": 0.375,
+          "n": 3.0
+        },
+        "tangent_alignment_mean": {
+          "median": 0.7398717403411865,
+          "iqr": 0.022078752517700195,
+          "n": 3.0
+        }
+      },
+      "statuses": {
+        "acceptance_mean": "green",
+        "border_overshoot_index": "green",
+        "coverage_local": "red",
+        "dh_p95_abs": "red",
+        "h_drift_slope_abs_mean": "green",
+        "median_steps_to_manifold": "green",
+        "plateau_fraction": "green",
+        "rescue_directionality_mean": "green",
+        "rescue_rate": "red",
+        "tangent_alignment_mean": "red"
+      }
+    }
+  }
+}

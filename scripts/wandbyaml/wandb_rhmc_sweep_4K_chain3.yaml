@@ -1,0 +1,40 @@
+program: scripts/rhmc_chain_demo.py
+method: bayes
+run_cap: 80
+metric:
+  name: diag/score
+  goal: maximize
+parameters:
+  model_path:
+    value: outputs/reference_models/4K
+  sampler:
+    value: volume_riemannian
+  chain_length:
+    value: 3
+  n_lf:
+    value: 30
+  eps_lf:
+    min: 0.0005
+    max: 0.03
+  fp_steps:
+    values: [8, 12, 16]
+  fp_damping:
+    min: 0.60
+    max: 0.90
+  volume_power:
+    values: [0.8, 1.0, 1.2]
+  momentum_persist:
+    value: 0.0
+  score_target_accept:
+    value: 0.8
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --exact
+  - --diagnostics_only
+  - --skip_energy_maps
+  - --skip_conservation
+  - --wandb_group
+  - rhmc_eps_tuning_4K_chain3

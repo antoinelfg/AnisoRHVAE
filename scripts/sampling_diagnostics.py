@@ -43,8 +43,12 @@ except ImportError:
 
 try:
     from scipy.spatial.distance import cdist as scipy_cdist
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import shortest_path as scipy_shortest_path
 except ImportError:
     scipy_cdist = None
+    csr_matrix = None
+    scipy_shortest_path = None
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
@@ -55,6 +59,9 @@ from src.models.samplers.hmc_sampler import (
     RiemannianHMCSampler,
     GeodesicHMCSampler,
     RHVAEVolumeElementHMCSampler,
+    VolumeElementRiemannianHMCSampler,
+    RHVAELogDetHMCSampler,
+    DualRiemannianHMCSampler,
     ManifoldAttractionHMCSampler,
 )
 from src.utils.metric_helpers import load_metric_bundle
@@ -94,6 +101,74 @@ def pad_latent(points: torch.Tensor, latent_dim: int) -> torch.Tensor:
     padded = torch.zeros(points.shape[0], latent_dim, device=points.device, dtype=points.dtype)
     padded[:, : points.shape[1]] = points
     return padded
+
+
+def run_hmc_chain(
+    start_z: torch.Tensor,
+    sampler: Any,
+    chain_length: int,
+    n_lf: int,
+    eps_lf: float,
+) -> tuple[np.ndarray, np.ndarray, float]:
+    """Run a single Metropolis-corrected chain from a starting point."""
+    z = start_z.clone().detach().requires_grad_(True)
+    chain = [z.detach().cpu().squeeze().numpy()]
+    energies: list[float] = []
+    accept_count = 0
+
+    for _ in range(chain_length):
+        rho = sampler._initialize_momentum(z)
+        with torch.no_grad():
+            if hasattr(sampler, "_compute_hamiltonian"):
+                H0 = sampler._compute_hamiltonian(z, rho)
+            elif hasattr(sampler, "_hamiltonian"):
+                H0 = sampler._hamiltonian(z, rho)
+            else:
+                H0 = torch.zeros(1, device=z.device)
+
+        z_prop = z.clone()
+        rho_prop = rho.clone()
+        use_tempering = (
+            (not bool(getattr(sampler, "exact", False)))
+            and hasattr(sampler, "_tempering")
+            and hasattr(sampler, "beta_zero_sqrt")
+        )
+        beta_sqrt_old = sampler.beta_zero_sqrt if use_tempering else None
+
+        for k in range(n_lf):
+            if hasattr(sampler, "_generalized_leapfrog_step"):
+                z_prop, rho_prop = sampler._generalized_leapfrog_step(z_prop, rho_prop, eps_lf)
+            elif hasattr(sampler, "_leapfrog"):
+                z_prop, rho_prop = sampler._leapfrog(z_prop, rho_prop, eps_lf)
+
+            if use_tempering and beta_sqrt_old is not None:
+                beta_sqrt = sampler._tempering(k + 1, n_lf, sampler.beta_zero_sqrt)
+                if torch.is_tensor(beta_sqrt):
+                    beta_sqrt = beta_sqrt.to(z.device)
+                else:
+                    beta_sqrt = torch.tensor(beta_sqrt, device=z.device)
+                rho_prop = (beta_sqrt_old / beta_sqrt) * rho_prop
+                beta_sqrt_old = beta_sqrt
+
+        with torch.no_grad():
+            if hasattr(sampler, "_compute_hamiltonian"):
+                H1 = sampler._compute_hamiltonian(z_prop, rho_prop)
+            elif hasattr(sampler, "_hamiltonian"):
+                H1 = sampler._hamiltonian(z_prop, rho_prop)
+            else:
+                H1 = torch.zeros(1, device=z.device)
+
+            alpha = torch.exp(-(H1 - H0)).clamp(max=1.0)
+            u = torch.rand_like(alpha)
+            if (u < alpha).all():
+                z = z_prop.detach().requires_grad_(True)
+                accept_count += 1
+
+            energies.append(H1.mean().item())
+        chain.append(z.detach().cpu().squeeze().numpy())
+
+    acceptance = accept_count / max(chain_length, 1)
+    return np.array(chain), np.array(energies), acceptance
 
 
 # =============================================================================
@@ -180,6 +255,10 @@ SAMPLER_REGISTRY = {
     "riemannian": RiemannianHMCSampler,
     "geodesic": GeodesicHMCSampler,
     "volume": RHVAEVolumeElementHMCSampler,
+    "volume_riemannian": VolumeElementRiemannianHMCSampler,
+    "volume_det": RHVAELogDetHMCSampler,
+    "volume_riemannian_det": GeodesicHMCSampler,
+    "dual_riemannian": DualRiemannianHMCSampler,
     "attraction": ManifoldAttractionHMCSampler,
 }
 
@@ -540,7 +619,7 @@ def multi_start_sampling(
     device: torch.device,
     n_starts: int = 16,
     n_samples_per_start: int = 50,
-    sampler_name: str = "attraction",
+    sampler_name: str = "volume",
     mcmc_steps: int = 50,
     n_lf: int = 10,
     eps_lf: float = 0.03,
@@ -571,24 +650,14 @@ def multi_start_sampling(
         sampler = create_sampler(model, sampler_name, mcmc_steps, n_lf, eps_lf)
         
         if sampler is not None:
-            # Run chain from this starting point
-            z = start_point.clone().detach().requires_grad_(True)
-            samples = [z.detach().cpu()]
-            
-            for _ in range(n_samples_per_start):
-                rho = sampler._initialize_momentum(z)
-                for k in range(n_lf):
-                    if hasattr(sampler, "_generalized_leapfrog_step"):
-                        z, rho = sampler._generalized_leapfrog_step(z, rho, eps_lf)
-                    elif hasattr(sampler, "_leapfrog"):
-                        z, rho = sampler._leapfrog(z, rho, eps_lf)
-                samples.append(z.detach().cpu())
-            
-            samples_tensor = torch.cat(samples, dim=0)
+            chain, energies, acceptance = run_hmc_chain(
+                start_point, sampler, n_samples_per_start, n_lf, eps_lf
+            )
+            samples_tensor = torch.as_tensor(chain)
             results["centroid_starts"].append({
                 "start": start_point.cpu(),
                 "samples": samples_tensor,
-                "acceptance": getattr(sampler, "last_acceptance_rate", 0.0),
+                "acceptance": acceptance,
             })
     
     # 2. Random Gaussian starts
@@ -600,22 +669,14 @@ def multi_start_sampling(
         sampler = create_sampler(model, sampler_name, mcmc_steps, n_lf, eps_lf)
         
         if sampler is not None:
-            z = start_point.clone().detach().requires_grad_(True)
-            samples = [z.detach().cpu()]
-            
-            for _ in range(n_samples_per_start):
-                rho = sampler._initialize_momentum(z)
-                for k in range(n_lf):
-                    if hasattr(sampler, "_generalized_leapfrog_step"):
-                        z, rho = sampler._generalized_leapfrog_step(z, rho, eps_lf)
-                    elif hasattr(sampler, "_leapfrog"):
-                        z, rho = sampler._leapfrog(z, rho, eps_lf)
-                samples.append(z.detach().cpu())
-            
-            samples_tensor = torch.cat(samples, dim=0)
+            chain, energies, acceptance = run_hmc_chain(
+                start_point, sampler, n_samples_per_start, n_lf, eps_lf
+            )
+            samples_tensor = torch.as_tensor(chain)
             results["gaussian_starts"].append({
                 "start": start_point.cpu(),
                 "samples": samples_tensor,
+                "acceptance": acceptance,
             })
     
     # 3. Grid starts
@@ -635,22 +696,14 @@ def multi_start_sampling(
             sampler = create_sampler(model, sampler_name, mcmc_steps // 2, n_lf // 2, eps_lf)
             
             if sampler is not None:
-                z = start_point.clone().detach().requires_grad_(True)
-                samples = [z.detach().cpu()]
-                
-                for _ in range(n_samples_per_start // 2):
-                    rho = sampler._initialize_momentum(z)
-                    for k in range(max(1, n_lf // 2)):
-                        if hasattr(sampler, "_generalized_leapfrog_step"):
-                            z, rho = sampler._generalized_leapfrog_step(z, rho, eps_lf)
-                        elif hasattr(sampler, "_leapfrog"):
-                            z, rho = sampler._leapfrog(z, rho, eps_lf)
-                    samples.append(z.detach().cpu())
-                
-                samples_tensor = torch.cat(samples, dim=0)
+                chain, energies, acceptance = run_hmc_chain(
+                    start_point, sampler, n_samples_per_start // 2, max(1, n_lf // 2), eps_lf
+                )
+                samples_tensor = torch.as_tensor(chain)
                 results["grid_starts"].append({
                     "start": start_point.cpu(),
                     "samples": samples_tensor,
+                    "acceptance": acceptance,
                 })
     
     # Visualize
@@ -763,10 +816,87 @@ def slerp_interpolation(z1: torch.Tensor, z2: torch.Tensor, n_steps: int = 10) -
     return torch.stack(results)
 
 
+def get_graph_initialization(
+    z1: torch.Tensor,
+    z2: torch.Tensor,
+    centroids: torch.Tensor,
+    n_steps: int,
+    k: int = 10,
+) -> torch.Tensor:
+    """Find approximate shortest path over a centroid k-NN graph."""
+    if scipy_cdist is None or scipy_shortest_path is None or csr_matrix is None:
+        t = torch.linspace(0, 1, n_steps, device=z1.device).unsqueeze(1)
+        return z1 + t * (z2 - z1)
+
+    if centroids is None or centroids.numel() == 0:
+        t = torch.linspace(0, 1, n_steps, device=z1.device).unsqueeze(1)
+        return z1 + t * (z2 - z1)
+
+    c_np = centroids.detach().cpu().numpy()
+    z1_np = z1.detach().cpu().numpy().reshape(1, -1)
+    z2_np = z2.detach().cpu().numpy().reshape(1, -1)
+
+    dists_start = scipy_cdist(z1_np, c_np)[0]
+    dists_end = scipy_cdist(z2_np, c_np)[0]
+    start_idx = int(np.argmin(dists_start))
+    end_idx = int(np.argmin(dists_end))
+
+    if start_idx == end_idx:
+        t = torch.linspace(0, 1, n_steps, device=z1.device).unsqueeze(1)
+        return z1 + t * (z2 - z1)
+
+    dists = scipy_cdist(c_np, c_np)
+    n_points = dists.shape[0]
+    if n_points <= 1:
+        t = torch.linspace(0, 1, n_steps, device=z1.device).unsqueeze(1)
+        return z1 + t * (z2 - z1)
+
+    k = min(k, n_points - 1)
+    adj = np.zeros((n_points, n_points), dtype=float)
+    for i in range(n_points):
+        nn_idx = np.argsort(dists[i])[1 : k + 1]
+        adj[i, nn_idx] = dists[i, nn_idx]
+        adj[nn_idx, i] = dists[i, nn_idx]
+
+    graph = csr_matrix(adj)
+    _, predecessors = scipy_shortest_path(
+        graph,
+        directed=False,
+        return_predecessors=True,
+        indices=start_idx,
+    )
+
+    path_indices = [end_idx]
+    curr = end_idx
+    while curr != start_idx:
+        curr = predecessors[curr]
+        if curr == -9999 or curr < 0:
+            t = torch.linspace(0, 1, n_steps, device=z1.device).unsqueeze(1)
+            return z1 + t * (z2 - z1)
+        path_indices.append(curr)
+    path_indices = path_indices[::-1]
+
+    raw_path = c_np[path_indices]
+    full_raw = np.concatenate([z1_np, raw_path, z2_np], axis=0)
+
+    seg_dists = np.linalg.norm(full_raw[1:] - full_raw[:-1], axis=1)
+    cum_dist = np.insert(np.cumsum(seg_dists), 0, 0.0)
+    if cum_dist[-1] == 0:
+        return z1.unsqueeze(0).repeat(n_steps, 1)
+
+    target_dists = np.linspace(0, cum_dist[-1], n_steps)
+    resampled = np.zeros((n_steps, full_raw.shape[1]))
+    for d in range(full_raw.shape[1]):
+        resampled[:, d] = np.interp(target_dists, cum_dist, full_raw[:, d])
+
+    return torch.tensor(resampled, device=z1.device, dtype=z1.dtype)
+
+
 def geodesic_interpolation(
     model: GeometryRHVAE,
     z1: torch.Tensor,
     z2: torch.Tensor,
+    centroids: Optional[torch.Tensor] = None,
     n_steps: int = 64,
     iterations: int = 2000,
     lr: float = 0.01,
@@ -774,18 +904,23 @@ def geodesic_interpolation(
 ) -> torch.Tensor:
     """
     Energy-minimizing geodesic interpolation using the learned metric.
-    Minimizes integral of z'^T G(z) z' along the path.
-    
-    The metric G should be LARGE in low-density regions (void) so that
-    geodesics prefer to stay on the data manifold.
+    Minimizes integral of z'^T G(z) z' along the path by default.
+
+    If wall_strength > 0, the objective switches to a log-det potential
+    U(z) = 0.5 * logdet(G) (equivalently -0.5 * logdet(G_inv)),
+    with a smoothness term.
+    If centroids are provided, a graph-based initialization is used.
     """
     device = z1.device
     z1 = z1.reshape(-1)
     z2 = z2.reshape(-1)
     
-    # Initialize with linear path
-    t = torch.linspace(0, 1, n_steps, device=device).unsqueeze(1)
-    init_path = z1 + t * (z2 - z1)
+    # Initialize with graph-based path when using attraction.
+    if centroids is not None and wall_strength > 0:
+        init_path = get_graph_initialization(z1, z2, centroids, n_steps)
+    else:
+        t = torch.linspace(0, 1, n_steps, device=device).unsqueeze(1)
+        init_path = z1 + t * (z2 - z1)
     
     # Optimize inner points
     inner = init_path[1:-1].clone().detach().requires_grad_(True)
@@ -798,41 +933,45 @@ def geodesic_interpolation(
     best_inner = inner.clone().detach()
     
     for i in range(iterations):
+        # Reparameterize to keep points equidistant and avoid path collapse.
+        if i % 20 == 0 and i > 0:
+            with torch.no_grad():
+                full_np = torch.cat([z1.unsqueeze(0), inner, z2.unsqueeze(0)], dim=0).cpu().numpy()
+                seg_dists = np.linalg.norm(full_np[1:] - full_np[:-1], axis=1)
+                cum_dist = np.concatenate(([0.0], np.cumsum(seg_dists)))
+                total_len = cum_dist[-1]
+                if total_len > 0:
+                    target_dists = np.linspace(0, total_len, n_steps)
+                    new_full = np.zeros_like(full_np)
+                    for d in range(full_np.shape[1]):
+                        new_full[:, d] = np.interp(target_dists, cum_dist, full_np[:, d])
+                    new_inner = torch.tensor(new_full[1:-1], device=device, dtype=inner.dtype)
+                    inner.data.copy_(new_inner)
+
         optimizer.zero_grad()
         full = torch.cat([z1.unsqueeze(0), inner, z2.unsqueeze(0)], dim=0)
         deltas = full[1:] - full[:-1]
         mids = 0.5 * (full[1:] + full[:-1])
-        
-        # Use G_inv instead of G for geodesic energy.
-        # G_inv is LARGE in void regions (by design), so v^T G_inv v is expensive in void.
-        G_inv_mid = model.G_inv(mids)
 
-        # Optional diagnostic-only "wall" boosting:
-        # make G_inv smaller where det(G_inv) is larger than at endpoints
-        # so that high-det(G_inv) manifold regions become energetically attractive.
+        # Use G for geodesic energy: G is small on manifold, large in void.
+        G_mid = model.G(mids)
+
         if wall_strength > 0.0:
-            with torch.no_grad():
-                # Reference log det at endpoints (approx manifold level)
-                G_inv_ends = model.G_inv(torch.stack([z1, z2], dim=0))
-                _, logdet_ends = torch.linalg.slogdet(G_inv_ends)
-                logdet_ref = logdet_ends.mean()
+            # Encourage high det(G_inv) (manifold) via logdet(G).
+            # logdet(G) = -logdet(G_inv) so minimizing +0.5 logdet(G) does this.
+            _, logdet_G = torch.linalg.slogdet(G_mid)
+            potential_energy = 0.5 * logdet_G.mean()
+            smoothness_energy = (deltas.norm(dim=1) ** 2).mean()
+            energy = 100.0 * smoothness_energy + wall_strength * potential_energy
+        else:
+            # Standard Riemannian energy: sum of v^T G v.
+            energy = torch.einsum("ni,nij,nj->n", deltas, G_mid, deltas).sum()
 
-                _, logdet_mid = torch.linalg.slogdet(G_inv_mid)
-                # Only rescale where logdet_mid > logdet_ref (on/near manifold)
-                boost = (logdet_mid - logdet_ref).clamp_min(0.0)
-                # NOTE: minus sign → shrink G_inv where det(G_inv) is high
-                scale = torch.exp(-wall_strength * boost)  # scalar per segment
-            # Rescale G_inv_mid in-place for energy computation
-            G_inv_mid = G_inv_mid * scale.view(-1, 1, 1)
-        
-        # Energy = sum of v^T G_inv_eff v for each segment
-        energy = torch.einsum("ni,nij,nj->n", deltas, G_inv_mid, deltas).sum()
-        
-        # Also add a small regularization to keep path smooth
+        # Curvature regularization (straightness).
         if inner.shape[0] > 1:
             second_deriv = inner[2:] - 2 * inner[1:-1] + inner[:-2]
-            smoothness = 0.001 * (second_deriv ** 2).sum()
-            total_loss = energy + smoothness
+            reg = 0.1 * (second_deriv ** 2).mean()
+            total_loss = energy + reg
         else:
             total_loss = energy
         
@@ -920,27 +1059,34 @@ def run_interpolation_comparison(
         pairs.append((centroids[i], centroids[j]))
     
     print("\n=== Interpolation Comparison ===")
+
+    n_high_res = 100
     
     for pair_idx, (z1, z2) in enumerate(pairs):
         print(f"  Pair {pair_idx + 1}/{n_pairs}")
         
         # Linear
-        linear_path = linear_interpolation(z1, z2, n_steps)
+        linear_path = linear_interpolation(z1, z2, n_high_res)
         results["linear"].append({"path": linear_path.cpu(), "pair_idx": pair_idx})
         
         # SLERP
-        slerp_path = slerp_interpolation(z1, z2, n_steps)
+        slerp_path = slerp_interpolation(z1, z2, n_high_res)
         results["slerp"].append({"path": slerp_path.cpu(), "pair_idx": pair_idx})
         
         # Geodesic
-        geodesic_path = geodesic_interpolation(model, z1, z2, n_steps * 4, iterations=400)
-        # Subsample to n_steps
-        indices = torch.linspace(0, geodesic_path.shape[0] - 1, n_steps).long()
-        geodesic_subsampled = geodesic_path[indices]
-        results["geodesic"].append({"path": geodesic_subsampled.cpu(), "pair_idx": pair_idx})
+        geodesic_path = geodesic_interpolation(
+            model,
+            z1,
+            z2,
+            centroids=centroids,
+            n_steps=n_high_res,
+            iterations=1000,
+            wall_strength=10.0,
+        )
+        results["geodesic"].append({"path": geodesic_path.cpu(), "pair_idx": pair_idx})
         
         # Metric-weighted
-        metric_path = metric_weighted_interpolation(model, z1, z2, n_steps)
+        metric_path = metric_weighted_interpolation(model, z1, z2, n_high_res)
         results["metric_weighted"].append({"path": metric_path.cpu(), "pair_idx": pair_idx})
     
     # Decode and visualize
@@ -1218,7 +1364,7 @@ def run_rhmc_diagnostics(
     device: torch.device,
     n_chains: int = 4,
     chain_length: int = 200,
-    sampler_name: str = "attraction",  # ManifoldAttractionHMCSampler
+    sampler_name: str = "volume",
     n_lf: int = 15,
     eps_lf: float = 0.03,
     out_dir: Optional[Path] = None,
@@ -1227,10 +1373,7 @@ def run_rhmc_diagnostics(
     """
     Run RHMC chain diagnostics with multiple chains.
     
-    Uses "attraction" sampler which has:
-    - Target: π(z) ∝ sqrt(det(G_inv)) (prefers manifold where G_inv is large)
-    - Dynamics: dz = G * ρ (small steps on manifold, larger in void)
-    This creates natural "attraction" to the manifold.
+    Runs Metropolis-corrected chains using the selected sampler.
     """
     print("\n=== RHMC Chain Diagnostics ===")
     
@@ -1250,55 +1393,12 @@ def run_rhmc_diagnostics(
         if sampler is None:
             continue
         
-        z = z0.clone().detach().requires_grad_(True)
-        chain = [z.detach().cpu().squeeze().numpy()]
-        chain_energies = []
-        accept_count = 0
-        
-        for step in range(chain_length):
-            rho = sampler._initialize_momentum(z)
-            
-            # Compute initial Hamiltonian
-            with torch.no_grad():
-                if hasattr(sampler, "_compute_hamiltonian"):
-                    H0 = sampler._compute_hamiltonian(z, rho)
-                elif hasattr(sampler, "_hamiltonian"):
-                    H0 = sampler._hamiltonian(z, rho)
-                else:
-                    H0 = torch.zeros(1, device=device)
-            
-            z_prop = z.clone()
-            rho_prop = rho.clone()
-            
-            # Leapfrog steps
-            for k in range(n_lf):
-                if hasattr(sampler, "_generalized_leapfrog_step"):
-                    z_prop, rho_prop = sampler._generalized_leapfrog_step(z_prop, rho_prop, eps_lf)
-                elif hasattr(sampler, "_leapfrog"):
-                    z_prop, rho_prop = sampler._leapfrog(z_prop, rho_prop, eps_lf)
-            
-            # Compute final Hamiltonian
-            with torch.no_grad():
-                if hasattr(sampler, "_compute_hamiltonian"):
-                    H1 = sampler._compute_hamiltonian(z_prop, rho_prop)
-                elif hasattr(sampler, "_hamiltonian"):
-                    H1 = sampler._hamiltonian(z_prop, rho_prop)
-                else:
-                    H1 = torch.zeros(1, device=device)
-                
-                # Metropolis acceptance
-                alpha = torch.exp(-(H1 - H0)).clamp(max=1.0)
-                if torch.rand(1, device=device) < alpha:
-                    z = z_prop.detach().requires_grad_(True)
-                    accept_count += 1
-                
-                chain_energies.append(H1.mean().item())
-            
-            chain.append(z.detach().cpu().squeeze().numpy())
-        
-        chains.append(np.array(chain))
-        energies.append(np.array(chain_energies))
-        acceptance_rates.append(accept_count / chain_length)
+        chain, chain_energies, acceptance = run_hmc_chain(
+            z0, sampler, chain_length, n_lf, eps_lf
+        )
+        chains.append(chain)
+        energies.append(chain_energies)
+        acceptance_rates.append(acceptance)
     
     results = {
         "chains": chains,
@@ -1399,21 +1499,24 @@ def run_sampling_diagnostics(
     # FID parameters
     run_fid: bool = True,
     fid_samples: int = 2000,
-    # Always include "attraction" as our main RHMC sampler
-    fid_samplers: list[str] = ["gaussian", "attraction"],
+    # Default FID samplers
+    fid_samplers: list[str] = ["gaussian", "volume"],
     # Multi-start parameters
     run_multi_start: bool = True,
     n_starts: int = 16,
+    multi_start_sampler: str = "volume",
     # Interpolation parameters
     run_interpolation: bool = True,
     n_interp_pairs: int = 4,
     # Quality metrics parameters
     run_quality: bool = True,
     quality_samples: int = 1000,
+    quality_samplers: list[str] = ["gaussian", "volume"],
     # RHMC diagnostics parameters
     do_rhmc_diagnostics: bool = True,
     n_chains: int = 4,
     chain_length: int = 200,
+    rhmc_sampler: str = "volume",
     # MCMC parameters
     mcmc_steps: int = 100,
     n_lf: int = 15,
@@ -1495,7 +1598,7 @@ def run_sampling_diagnostics(
         multi_start_results = multi_start_sampling(
             model, centroids, device,
             n_starts=n_starts,
-            sampler_name="riemannian",
+            sampler_name=multi_start_sampler,
             mcmc_steps=mcmc_steps // 2,
             n_lf=n_lf // 2,
             eps_lf=eps_lf,
@@ -1525,8 +1628,7 @@ def run_sampling_diagnostics(
     if run_quality and real_data is not None:
         quality_results = run_quality_metrics(
             model, centroids, real_data, device,
-            # Compare Gaussian vs our manifold-attraction sampler
-            samplers=["gaussian", "attraction"],
+            samplers=quality_samplers,
             n_samples=quality_samples,
             out_dir=out_dir,
             wandb_run=wandb_run,
@@ -1539,6 +1641,7 @@ def run_sampling_diagnostics(
             model, centroids, device,
             n_chains=n_chains,
             chain_length=chain_length,
+            sampler_name=rhmc_sampler,
             n_lf=n_lf,
             eps_lf=eps_lf,
             out_dir=out_dir,
@@ -1643,22 +1746,43 @@ def main():
         "--fid_samplers",
         type=str,
         nargs="+",
-        default=["gaussian", "attraction"],
+        default=["gaussian", "volume"],
         help="Samplers to evaluate for FID",
     )
     
     # Multi-start parameters
     parser.add_argument("--n_starts", type=int, default=16, help="Number of starting points")
+    parser.add_argument(
+        "--multi_start_sampler",
+        type=str,
+        default="volume",
+        choices=list(SAMPLER_REGISTRY.keys()),
+        help="Sampler used for multi-start chains",
+    )
     
     # Interpolation parameters
     parser.add_argument("--n_interp_pairs", type=int, default=4, help="Number of interpolation pairs")
     
     # Quality parameters
     parser.add_argument("--quality_samples", type=int, default=1000, help="Samples for quality metrics")
+    parser.add_argument(
+        "--quality_samplers",
+        type=str,
+        nargs="+",
+        default=["gaussian", "volume"],
+        help="Samplers to evaluate for quality metrics",
+    )
     
     # RHMC parameters
     parser.add_argument("--n_chains", type=int, default=4, help="Number of RHMC chains")
     parser.add_argument("--chain_length", type=int, default=200, help="Length of each chain")
+    parser.add_argument(
+        "--rhmc_sampler",
+        type=str,
+        default="volume",
+        choices=list(SAMPLER_REGISTRY.keys()),
+        help="Sampler used for RHMC diagnostics",
+    )
     
     # MCMC parameters
     parser.add_argument("--mcmc_steps", type=int, default=100, help="MCMC steps for samplers")
@@ -1720,13 +1844,16 @@ def main():
         fid_samplers=args.fid_samplers,
         run_multi_start=not args.skip_multi_start,
         n_starts=args.n_starts,
+        multi_start_sampler=args.multi_start_sampler,
         run_interpolation=not args.skip_interpolation,
         n_interp_pairs=args.n_interp_pairs,
         run_quality=not args.skip_quality and real_data is not None,
         quality_samples=args.quality_samples,
+        quality_samplers=args.quality_samplers,
         do_rhmc_diagnostics=not args.skip_rhmc,
         n_chains=args.n_chains,
         chain_length=args.chain_length,
+        rhmc_sampler=args.rhmc_sampler,
         mcmc_steps=args.mcmc_steps,
         n_lf=args.n_lf,
         eps_lf=args.eps_lf,

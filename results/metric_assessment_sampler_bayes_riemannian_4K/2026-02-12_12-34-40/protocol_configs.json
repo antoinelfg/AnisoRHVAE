@@ -1,0 +1,14 @@
+{
+  "matched": {
+    "aniso": {
+      "sampler_name": "volume_riemannian",
+      "exact": true,
+      "volume_power": 1.252097309694061,
+      "n_lf": 60,
+      "eps_lf": 0.7723166912489029,
+      "momentum_persist": 0.0,
+      "fp_steps": 20,
+      "fp_damping": 0.8226112642950619
+    }
+  }
+}

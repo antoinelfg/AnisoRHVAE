@@ -1,0 +1,109 @@
+{
+  "metadata": {
+    "model_path": "outputs/reference_models/4K",
+    "dims": [
+      0,
+      1
+    ],
+    "grid_n": 90,
+    "quiver_n": 14,
+    "volume_power": 0.8,
+    "r0": 0.9553154706954956,
+    "timestamp": "2026-02-16_14-46-03"
+  },
+  "metrics": {
+    "spd_violation_rate": 0.0,
+    "min_eigenvalue_p01": 0.2672416210174561,
+    "logdet_manifold_median": 3.838336229324341,
+    "logdet_transition_median": 1.7787275314331055,
+    "logdet_far_void_median": 1.4449150562286377,
+    "logdet_contrast_manifold_minus_void": 2.393421173095703,
+    "logdet_monotonic_manifold_gt_transition_gt_void": true,
+    "cond2d_p95": 31.42063817977905,
+    "cond2d_void_p95": 32.1915573120117,
+    "cond2d_manifold_median": 1.3034961223602295,
+    "cond2d_void_median": 22.14005470275879,
+    "mobility2d_manifold_mean": 3.8676617598047063,
+    "mobility2d_void_mean": 3.1824423183227895,
+    "mobility2d_ratio_manifold_over_void": 1.2153124465247311,
+    "force_alignment_outside_mean": 0.9451168946227552,
+    "force_opposition_rate_outside": 0.026881720430107527,
+    "step_alignment_outside_mean": 0.9916182616976182,
+    "plateau_fraction_outside_quiver": 0.9623655913978495,
+    "plateau_fraction_outside_rescue_metric": 0.0011911852293031567,
+    "rescue_alignment_mean": 0.9401366627988972,
+    "border_overshoot_index": -1.9575281143188477,
+    "tunnel_neff_transition_median": 1.0,
+    "tunnel_neff_far_void_median": 1.0,
+    "tangent_alignment_mean": 0.730086624622345,
+    "r0": 0.9553154706954956,
+    "n_grid_points": 8100,
+    "n_quiver_points": 196
+  },
+  "scorecard": [
+    {
+      "name": "SPD validity",
+      "key": "spd_violation_rate",
+      "objective": "Metric must stay SPD in sampled space",
+      "good_if": "rate <= 1e-4",
+      "value": 0.0,
+      "pass": true
+    },
+    {
+      "name": "Volume contrast",
+      "key": "logdet_contrast_manifold_minus_void",
+      "objective": "Manifold should have higher log det(G_inv) than far void",
+      "good_if": "contrast > 0",
+      "value": 2.393421173095703,
+      "pass": true
+    },
+    {
+      "name": "Monotonic shells",
+      "key": "logdet_monotonic_manifold_gt_transition_gt_void",
+      "objective": "Determinant should decrease from manifold to void",
+      "good_if": "True",
+      "value": true,
+      "pass": true
+    },
+    {
+      "name": "Void force alignment",
+      "key": "force_alignment_outside_mean",
+      "objective": "Volume force should point toward manifold on average outside",
+      "good_if": "mean cosine > 0",
+      "value": 0.9451168946227552,
+      "pass": true
+    },
+    {
+      "name": "Void opposition rate",
+      "key": "force_opposition_rate_outside",
+      "objective": "Too many opposite arrows indicate unstable rescue dynamics",
+      "good_if": "rate < 0.35",
+      "value": 0.026881720430107527,
+      "pass": true
+    },
+    {
+      "name": "Plateau outside",
+      "key": "plateau_fraction_outside_rescue_metric",
+      "objective": "Avoid flat gradients in void",
+      "good_if": "fraction < 0.35",
+      "value": 0.0011911852293031567,
+      "pass": true
+    },
+    {
+      "name": "Border overshoot",
+      "key": "border_overshoot_index",
+      "objective": "Transition shell should not overshoot manifold and void medians",
+      "good_if": "index <= 0",
+      "value": -1.9575281143188477,
+      "pass": true
+    },
+    {
+      "name": "Tangent coherence",
+      "key": "tangent_alignment_mean",
+      "objective": "Principal metric direction should match local tangent near manifold",
+      "good_if": "alignment > 0.55",
+      "value": 0.730086624622345,
+      "pass": true
+    }
+  ]
+}

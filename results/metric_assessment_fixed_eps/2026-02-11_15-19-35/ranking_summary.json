@@ -1,0 +1,164 @@
+{
+  "matched": {
+    "baseline": {
+      "protocol": "matched",
+      "model_key": "baseline",
+      "n_seeds": 3,
+      "hard_reject": true,
+      "reject_reasons": [
+        "acceptance_mean",
+        "dh_p95_abs"
+      ],
+      "primary_green_count": 2,
+      "primary_n_total": 7,
+      "tiebreak_tangent_alignment_mean": 0.6934154033660889,
+      "tiebreak_rescue_rate": 0.0,
+      "tiebreak_coverage_local": 0.75,
+      "iqr_noise_penalty": 0.04266117972616872,
+      "metrics": {
+        "acceptance_mean": {
+          "median": 0.0,
+          "iqr": 0.0,
+          "n": 3.0
+        },
+        "border_overshoot_index": {
+          "median": 3.591845989227295,
+          "iqr": 0.0,
+          "n": 1.0
+        },
+        "coverage_local": {
+          "median": 0.75,
+          "iqr": 0.05859375,
+          "n": 3.0
+        },
+        "dh_p95_abs": {
+          "median": 68.9761878967285,
+          "iqr": 11.933997249603266,
+          "n": 3.0
+        },
+        "h_drift_slope_abs_mean": {
+          "median": 0.0021916654321020956,
+          "iqr": 0.002462061238832701,
+          "n": 3.0
+        },
+        "median_steps_to_manifold": {
+          "median": 21.0,
+          "iqr": 0.0,
+          "n": 3.0
+        },
+        "plateau_fraction": {
+          "median": 0.9523809523809523,
+          "iqr": 0.11309523809523803,
+          "n": 3.0
+        },
+        "rescue_directionality_mean": {
+          "median": 0.047602341812720064,
+          "iqr": 0.11799466916740162,
+          "n": 3.0
+        },
+        "rescue_rate": {
+          "median": 0.0,
+          "iqr": 0.0,
+          "n": 3.0
+        },
+        "tangent_alignment_mean": {
+          "median": 0.6934154033660889,
+          "iqr": 0.008944600820541382,
+          "n": 3.0
+        }
+      },
+      "statuses": {
+        "acceptance_mean": "red",
+        "border_overshoot_index": "red",
+        "coverage_local": "green",
+        "dh_p95_abs": "red",
+        "h_drift_slope_abs_mean": "green",
+        "median_steps_to_manifold": "green",
+        "plateau_fraction": "red",
+        "rescue_directionality_mean": "red",
+        "rescue_rate": "red",
+        "tangent_alignment_mean": "red"
+      }
+    },
+    "aniso": {
+      "protocol": "matched",
+      "model_key": "aniso",
+      "n_seeds": 3,
+      "hard_reject": true,
+      "reject_reasons": [
+        "acceptance_mean",
+        "dh_p95_abs"
+      ],
+      "primary_green_count": 3,
+      "primary_n_total": 7,
+      "tiebreak_tangent_alignment_mean": 0.5202955603599548,
+      "tiebreak_rescue_rate": 0.0,
+      "tiebreak_coverage_local": 0.1953125,
+      "iqr_noise_penalty": 1.5258319499937951,
+      "metrics": {
+        "acceptance_mean": {
+          "median": 0.3625,
+          "iqr": 0.125,
+          "n": 3.0
+        },
+        "border_overshoot_index": {
+          "median": 0.3423018455505371,
+          "iqr": 0.0,
+          "n": 1.0
+        },
+        "coverage_local": {
+          "median": 0.1953125,
+          "iqr": 0.0390625,
+          "n": 3.0
+        },
+        "dh_p95_abs": {
+          "median": 10.08201298713684,
+          "iqr": 0.4318422555923451,
+          "n": 3.0
+        },
+        "h_drift_slope_abs_mean": {
+          "median": 0.014086042267843314,
+          "iqr": 0.036969307052558825,
+          "n": 3.0
+        },
+        "median_steps_to_manifold": {
+          "median": 21.0,
+          "iqr": 10.5,
+          "n": 3.0
+        },
+        "plateau_fraction": {
+          "median": 0.0,
+          "iqr": 0.0,
+          "n": 3.0
+        },
+        "rescue_directionality_mean": {
+          "median": 0.999999994858993,
+          "iqr": 7.112759157212878e-07,
+          "n": 3.0
+        },
+        "rescue_rate": {
+          "median": 0.0,
+          "iqr": 0.125,
+          "n": 3.0
+        },
+        "tangent_alignment_mean": {
+          "median": 0.5202955603599548,
+          "iqr": 0.016760438680648804,
+          "n": 3.0
+        }
+      },
+      "statuses": {
+        "acceptance_mean": "red",
+        "border_overshoot_index": "red",
+        "coverage_local": "red",
+        "dh_p95_abs": "red",
+        "h_drift_slope_abs_mean": "yellow",
+        "median_steps_to_manifold": "green",
+        "plateau_fraction": "green",
+        "rescue_directionality_mean": "green",
+        "rescue_rate": "red",
+        "tangent_alignment_mean": "red"
+      }
+    }
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "created_at": "2026-02-11T18:59:15.692570",
+  "model_dir": "outputs/metric_core4_sweep/2026-02-11_18-54-17-642251_5wt9jzkp/2026-02-11_18-54-27",
+  "base_config": "configs/run_geometry_default_soft_no_tunnels_v2.yaml",
+  "device": "cuda",
+  "probe_points": 2048,
+  "probe_bbox_scale": 2.5,
+  "probe_seed": 13,
+  "core4_metrics": {
+    "tangent_alignment_mean": 0.6884534358978271,
+    "rescue_directionality_mean": 0.9043224775216236,
+    "border_overshoot_index": -2.2408447265625,
+    "plateau_fraction": 0.0,
+    "r0_model": 0.9599582552909851,
+    "logdet_manifold_median": 4.799382209777832,
+    "logdet_transition_median": 2.558537483215332,
+    "logdet_far_void_median": 1.501279592514038,
+    "tunnel_neff_transition_median": 1.9788483381271362,
+    "tunnel_neff_far_void_median": 1.7551803588867188
+  },
+  "core4_objective": {
+    "objective_metric_core4_v1": 1.3461335897445679,
+    "core4_green_count": 3,
+    "core4_n_total": 4,
+    "margins": {
+      "tangent_alignment_mean": -0.6154656410217286,
+      "rescue_directionality_mean": 2.0,
+      "border_overshoot_index": 2.0,
+      "plateau_fraction": 2.0
+    },
+    "statuses": {
+      "tangent_alignment_mean": "red",
+      "rescue_directionality_mean": "green",
+      "border_overshoot_index": "green",
+      "plateau_fraction": "green"
+    }
+  },
+  "primary7_metrics": {
+    "coverage_local": 0.1484375,
+    "rescue_rate": 0.75,
+    "median_steps_to_manifold": 4.0,
+    "plateau_fraction": 0.0,
+    "tangent_alignment_mean": 0.6783573627471924,
+    "rescue_directionality_mean": 0.9592329809136149,
+    "border_overshoot_index": -1.918778657913208,
+    "sample_acceptance_rate": 0.9425,
+    "r0_model": 0.9599582552909851,
+    "radius": 13.13440203666687
+  },
+  "primary7_objective": {
+    "objective_primary7_weighted_v1": 1.1123861980438232,
+    "primary7_green_count": 5,
+    "primary7_n_total": 7,
+    "margins": {
+      "tangent_alignment_mean": -0.7164263725280763,
+      "rescue_directionality_mean": 2.0,
+      "border_overshoot_index": 2.0,
+      "plateau_fraction": 2.0,
+      "rescue_rate": 1.0,
+      "median_steps_to_manifold": 2.0,
+      "coverage_local": -1.0
+    },
+    "statuses": {
+      "tangent_alignment_mean": "red",
+      "rescue_directionality_mean": "green",
+      "border_overshoot_index": "green",
+      "plateau_fraction": "green",
+      "rescue_rate": "green",
+      "median_steps_to_manifold": "green",
+      "coverage_local": "red"
+    },
+    "weighted_terms": {
+      "tangent_alignment_mean": -0.15761380195617677,
+      "rescue_directionality_mean": 0.4,
+      "border_overshoot_index": 0.34,
+      "plateau_fraction": 0.3,
+      "rescue_rate": 0.11,
+      "median_steps_to_manifold": 0.18,
+      "coverage_local": -0.06
+    }
+  },
+  "train_params": {
+    "epochs": 40,
+    "seed": 13,
+    "atom_power": 1.1728811563229509,
+    "temperature": 0.7999651803728817,
+    "transition_steepness": 7.544228421120151,
+    "radial_stretch": 9.962404208787206,
+    "void_decay_scale": 8.44658888550944,
+    "void_decay_power": 1.5506093947059996,
+    "attractor_gamma": 10.055440356295753,
+    "attractor_k_nearest": 2
+  },
+  "eval_sampler": {
+    "sampler_name": "volume",
+    "n_lf": 30,
+    "eps_lf": 0.3,
+    "volume_power": 1.0,
+    "sampling_mcmc_steps": 12,
+    "coverage_samples": 200,
+    "rescue_horizon": 25,
+    "rescue_ring_starts": 4,
+    "rescue_gaussian_starts": 4,
+    "eval_seed": 13
+  }
+}

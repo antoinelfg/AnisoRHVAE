@@ -1,0 +1,25 @@
+[info] plotting disabled (use --save_plots to save PNG outputs).
+[info] profile='smoke' active for shorter benchmark runtime.
+[warning] Running 2-seed prefilter mode. Final ranking should be rerun with 3 seeds.
+[info] aniso-only mode enabled: baseline model will be skipped.
+[info] matched pilot selection disabled: using provided matched_eps_grid directly.
+[info] wandb disabled (no --wandb_project and no WANDB_* sweep/run env).
+[pilot][matched] skipped -> using eps_lf=0.03000 for all active models
+
+=== Protocol: matched ===
+  aniso: n_lf=10, eps_lf=0.03000, volume_power=0.800
+    seed=13
+✅ Hybrid(Volume+Riemannian) Acceptance Rate: 1.000
+      done (1/2) elapsed=0.2min eta=0.2min
+    seed=29
+✅ Hybrid(Volume+Riemannian) Acceptance Rate: 0.994
+      done (2/2) elapsed=0.4min eta=0.0min
+
+Saved assessment outputs to: results/hybrid_ratio_sweep_model1702_short/2026-02-18_18-35-52
+- raw_metrics.csv
+- summary_by_protocol.json
+- scorecard.csv
+- scorecard.md
+- ranking_summary.csv
+- ranking_summary.json
+- model_run_bilan.csv

@@ -31,7 +31,14 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
 from src.models.rhvae_geometry import GeometryRHVAE, GeometryRHVAEConfig
-from src.models.samplers.hmc_sampler import RiemannianHMCSampler, GeodesicHMCSampler
+from src.models.samplers.hmc_sampler import (
+    RiemannianHMCSampler,
+    GeodesicHMCSampler,
+    RHVAEVolumeElementHMCSampler,
+    VolumeElementRiemannianHMCSampler,
+    RHVAELogDetHMCSampler,
+    DualRiemannianHMCSampler,
+)
 from src.utils.metric_helpers import load_metric_bundle
 
 sns.set_theme(style="whitegrid")
@@ -199,6 +206,16 @@ def compute_path_length(model: GeometryRHVAE, path: torch.Tensor) -> float:
         integrand = torch.einsum("ni,nij,nj->n", deltas, G_mid, deltas)
         lengths = torch.sqrt(torch.clamp(integrand, min=0.0))
         return lengths.sum().item()
+
+
+def compute_path_energy(model: GeometryRHVAE, path: torch.Tensor) -> torch.Tensor:
+    """Per-segment metric energy along a discrete path."""
+    with torch.no_grad():
+        deltas = path[1:] - path[:-1]
+        mids = 0.5 * (path[1:] + path[:-1])
+        G_mid = model.G(mids)
+        energy = torch.einsum("ni,nij,nj->n", deltas, G_mid, deltas)
+    return energy
 
 
 def optimize_geodesic(
@@ -639,6 +656,8 @@ def geodesic_vs_linear(
 
         linear_length = compute_path_length(model, linear_path)
         geodesic_length = compute_path_length(model, geodesic_path)
+        linear_energy = compute_path_energy(model, linear_path).detach().cpu().numpy()
+        geodesic_energy = compute_path_energy(model, geodesic_path).detach().cpu().numpy()
         reduction = linear_length - geodesic_length
         stats.append(
             {
@@ -652,6 +671,8 @@ def geodesic_vs_linear(
             {
                 "linear": linear_path.detach().cpu().numpy(),
                 "geodesic": geodesic_path.detach().cpu().numpy(),
+                "linear_energy": linear_energy,
+                "geodesic_energy": geodesic_energy,
                 "description": meta.get("description", "pair"),
             }
         )
@@ -700,6 +721,39 @@ def geodesic_vs_linear(
         fig,
         out_dir / "geodesic_batch.png",
         "analysis/geodesic_batch",
+        wandb_run,
+    )
+
+    # Energy profiles along each path (metric energy per segment)
+    fig, axes = plt.subplots(
+        subplots[0],
+        subplots[1],
+        figsize=(subplots[1] * 4, subplots[0] * 3.2),
+        squeeze=False,
+    )
+    fig.suptitle("Geodesic vs Linear Energy Profiles")
+    axes_flat = axes.flatten()
+    for idx in range(len(axes_flat)):
+        ax = axes_flat[idx]
+        if idx < total:
+            data = batch_data[idx]
+            lin_e = data["linear_energy"]
+            geo_e = data["geodesic_energy"]
+            t_lin = np.linspace(0, 1, len(lin_e))
+            t_geo = np.linspace(0, 1, len(geo_e))
+            ax.plot(t_lin, lin_e, "--", color="dimgray", linewidth=1.2, label="linear")
+            ax.plot(t_geo, geo_e, "-", color="royalblue", linewidth=1.4, label="geodesic")
+            ax.set_title(f"{data['description']} #{idx + 1}")
+            if idx == 0:
+                ax.legend(frameon=False, fontsize=8)
+        ax.set_xlabel("Path progress")
+        ax.set_ylabel("Metric energy")
+        ax.grid(alpha=0.2)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    save_plot(
+        fig,
+        out_dir / "geodesic_energy_profiles.png",
+        "analysis/geodesic_energy_profiles",
         wandb_run,
     )
 
@@ -765,6 +819,70 @@ def rescue_dynamics_quiver(
         fig,
         out_dir / 'lost_sampler_quiver.png',
         'analysis/rescue_quiver',
+        wandb_run,
+    )
+
+
+def rescue_dynamics_quiver_volume(
+    model: GeometryRHVAE,
+    centroids: torch.Tensor,
+    out_dir: Path,
+    steps: int = 60,
+    step_size: float = 0.05,
+    wandb_run: Optional[Any] = None,
+    step: int = 0,
+) -> None:
+    """Quiver using the volume-element gradient: ∇ log sqrt det(G^{-1})."""
+    print("-> Volume-Element Rescue Dynamics")
+    device = centroids.device
+    c_ext = centroids.abs().max().item() * 2.5
+    start = torch.tensor([c_ext, c_ext], device=device)
+    if model.latent_dim > 2:
+        pad = torch.zeros(model.latent_dim - 2, device=device)
+        start = torch.cat([start, pad])
+
+    path = [start.clone()]
+    z = start.clone()
+    for _ in range(steps):
+        z = z.detach().requires_grad_(True)
+        G_inv = model.G_inv(z.unsqueeze(0)).squeeze(0)
+        logdet_inv = torch.linalg.slogdet(G_inv).logabsdet
+        obj = 0.5 * logdet_inv
+        grad = torch.autograd.grad(obj, z, create_graph=False)[0]
+        grad = grad / (grad.norm() + 1e-8)
+        z = z + step_size * grad
+        path.append(z.detach())
+
+    path_stack = torch.stack(path)
+    deltas = path_stack[1:] - path_stack[:-1]
+    deltas_2d = deltas[:, :2].detach().cpu().numpy()
+    colors = np.linspace(0, 1, deltas.shape[0])
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+    centroids_np = centroids[:, :2].detach().cpu().numpy()
+    ax.scatter(centroids_np[:, 0], centroids_np[:, 1], c='gray', alpha=0.3, s=20)
+    path_np = path_stack[:, :2].detach().cpu().numpy()
+    ax.plot(path_np[:, 0], path_np[:, 1], color='black', linewidth=1.5, alpha=0.7)
+    quiver = ax.quiver(
+        path_np[:-1, 0],
+        path_np[:-1, 1],
+        deltas_2d[:, 0],
+        deltas_2d[:, 1],
+        colors,
+        cmap='coolwarm',
+        scale=1.0,
+        width=0.005,
+        headwidth=4,
+    )
+    fig.colorbar(quiver, ax=ax, label='Step progression')
+    ax.set_title('Volume-Element Rescue Field (Quiver)')
+    ax.set_xlabel('Latent Dim 1')
+    ax.set_ylabel('Latent Dim 2')
+    ax.set_aspect('equal')
+    save_plot(
+        fig,
+        out_dir / 'volume_rescue_quiver.png',
+        'analysis/volume_rescue_quiver',
         wandb_run,
     )
 
@@ -948,6 +1066,47 @@ def _build_rhmc_sampler(
             beta_zero=beta_zero,
             include_metropolis=True,
         )
+    if sampler_name == "volume":
+        return RHVAEVolumeElementHMCSampler(
+            model,
+            mcmc_steps_nbr=mcmc_steps,
+            n_lf=n_lf,
+            eps_lf=eps_lf,
+            beta_zero=beta_zero,
+        )
+    if sampler_name == "volume_riemannian":
+        return VolumeElementRiemannianHMCSampler(
+            model,
+            mcmc_steps_nbr=mcmc_steps,
+            n_lf=n_lf,
+            eps_lf=eps_lf,
+            beta_zero=beta_zero,
+        )
+    if sampler_name == "volume_det":
+        return RHVAELogDetHMCSampler(
+            model,
+            mcmc_steps_nbr=mcmc_steps,
+            n_lf=n_lf,
+            eps_lf=eps_lf,
+            beta_zero=beta_zero,
+        )
+    if sampler_name == "volume_riemannian_det":
+        return GeodesicHMCSampler(
+            model,
+            mcmc_steps_nbr=mcmc_steps,
+            n_lf=n_lf,
+            eps_lf=eps_lf,
+            beta_zero=beta_zero,
+            include_metropolis=True,
+        )
+    if sampler_name == "dual_riemannian":
+        return DualRiemannianHMCSampler(
+            model,
+            mcmc_steps_nbr=mcmc_steps,
+            n_lf=n_lf,
+            eps_lf=eps_lf,
+            beta_zero=beta_zero,
+        )
     return RiemannianHMCSampler(
         model,
         mcmc_steps_nbr=mcmc_steps,
@@ -991,13 +1150,18 @@ def rhmc_chain(
     idx = torch.randint(K, (1,), device=device)
     z0 = centroids[idx].detach()
     z = z0.clone().detach().requires_grad_(True)
-    beta_sqrt_old = sampler.beta_zero_sqrt.to(device)
     path = [z.detach().squeeze(0).cpu().numpy()]
     logdet_values = []
     accept_count = 0
     local_n_lf = int(getattr(sampler, "n_lf", n_lf).item() if torch.is_tensor(getattr(sampler, "n_lf", None)) else getattr(sampler, "n_lf", n_lf))
     local_eps = float(getattr(sampler, "eps_lf", eps_lf).item() if torch.is_tensor(getattr(sampler, "eps_lf", None)) else getattr(sampler, "eps_lf", eps_lf))
     for _ in range(getattr(sampler, "mcmc_steps_nbr", steps)):
+        use_tempering = (
+            (not bool(getattr(sampler, "exact", False)))
+            and hasattr(sampler, "_tempering")
+            and hasattr(sampler, "beta_zero_sqrt")
+        )
+        beta_sqrt_old = sampler.beta_zero_sqrt.to(device) if use_tempering else None
         rho = sampler._initialize_momentum(z)
         with torch.no_grad():
             if hasattr(sampler, "_compute_hamiltonian"):
@@ -1009,14 +1173,15 @@ def rhmc_chain(
                 z, rho = sampler._generalized_leapfrog_step(z, rho, local_eps)
             else:
                 z, rho = sampler._leapfrog(z, rho, local_eps)
-            beta_sqrt = sampler._tempering(k + 1, local_n_lf, sampler.beta_zero_sqrt)
-            # Ensure all tensors are on the same device
-            if torch.is_tensor(beta_sqrt):
-                beta_sqrt = beta_sqrt.to(device)
-            else:
-                beta_sqrt = torch.tensor(beta_sqrt, device=device)
-            rho = (beta_sqrt_old / beta_sqrt) * rho
-            beta_sqrt_old = beta_sqrt
+            if use_tempering and beta_sqrt_old is not None:
+                beta_sqrt = sampler._tempering(k + 1, local_n_lf, sampler.beta_zero_sqrt)
+                # Ensure all tensors are on the same device
+                if torch.is_tensor(beta_sqrt):
+                    beta_sqrt = beta_sqrt.to(device)
+                else:
+                    beta_sqrt = torch.tensor(beta_sqrt, device=device)
+                rho = (beta_sqrt_old / beta_sqrt) * rho
+                beta_sqrt_old = beta_sqrt
         with torch.no_grad():
             if hasattr(sampler, "_compute_hamiltonian"):
                 H1 = sampler._compute_hamiltonian(z, rho)
@@ -1063,6 +1228,8 @@ def simulate_rhmc_chain(
     title = "RHMC Chain (Riemannian)"
     if rhmc_sampler == "geodesic":
         title = "RHMC Chain (Geodesic Uniform)"
+    elif rhmc_sampler == "volume":
+        title = "RHMC Chain (Volume Element)"
     ax.set_title(title)
     ax.set_xlabel("Latent Dim 1")
     ax.set_ylabel("Latent Dim 2")
@@ -1129,6 +1296,7 @@ def run_analysis(
         wandb_run=wandb_run,
     )
     rescue_dynamics_quiver(model, centroids, out_dir, wandb_run=wandb_run)
+    rescue_dynamics_quiver_volume(model, centroids, out_dir, wandb_run=wandb_run)
     geodesic_stats, geodesic_paths = geodesic_vs_linear(
         model,
         centroids,
@@ -1229,9 +1397,17 @@ def main() -> None:
     parser.add_argument(
         "--rhmc_sampler",
         type=str,
-        default="riemannian",
-        choices=["riemannian", "geodesic"],
-        help="Sampler for RHMC prior/chain (riemannian or geodesic-uniform).",
+        default="volume",
+        choices=[
+            "riemannian",
+            "geodesic",
+            "volume",
+            "volume_riemannian",
+            "volume_det",
+            "volume_riemannian_det",
+            "dual_riemannian",
+        ],
+        help="Sampler for RHMC prior/chain (riemannian, geodesic-uniform, volume-element, volume-riemannian, volume-detG, volume-riemannian-detG, dual-riemannian).",
     )
     parser.add_argument("--wandb_project", type=str, default=None, help="Log to WandB project.")
     parser.add_argument("--wandb_entity", type=str, default=None, help="WandB entity/account.")

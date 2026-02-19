@@ -1,0 +1,46 @@
+{
+  "strict": {
+    "baseline": {
+      "sampler_name": "volume_riemannian",
+      "exact": true,
+      "volume_power": 1.0,
+      "n_lf": 10,
+      "eps_lf": 0.01,
+      "momentum_persist": 0.0,
+      "fp_steps": 3,
+      "fp_damping": 0.7
+    },
+    "aniso": {
+      "sampler_name": "volume_riemannian",
+      "exact": true,
+      "volume_power": 1.0,
+      "n_lf": 10,
+      "eps_lf": 0.01,
+      "momentum_persist": 0.0,
+      "fp_steps": 3,
+      "fp_damping": 0.7
+    }
+  },
+  "matched": {
+    "baseline": {
+      "sampler_name": "volume_riemannian",
+      "exact": true,
+      "volume_power": 1.0,
+      "n_lf": 10,
+      "eps_lf": 0.01,
+      "momentum_persist": 0.0,
+      "fp_steps": 3,
+      "fp_damping": 0.7
+    },
+    "aniso": {
+      "sampler_name": "volume_riemannian",
+      "exact": true,
+      "volume_power": 1.0,
+      "n_lf": 10,
+      "eps_lf": 0.01,
+      "momentum_persist": 0.0,
+      "fp_steps": 3,
+      "fp_damping": 0.7
+    }
+  }
+}

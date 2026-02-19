@@ -1,0 +1,33 @@
+{
+  "old_model_path": "/home/alaforgu/scratch/longitudinal_experiments/AnisoRHVAE/outputs/reference_models/4K",
+  "new_model_path": "/home/alaforgu/scratch/longitudinal_experiments/AnisoRHVAE/outputs/metric_core4_sweep/2026-02-17_13-53-54",
+  "dims": [
+    0,
+    1
+  ],
+  "grid_n": 180,
+  "fro_abs": {
+    "mean": 11.876775741577148,
+    "median": 13.063163757324219,
+    "p95": 13.0853901386261,
+    "max": 18.404008865356445
+  },
+  "fro_rel": {
+    "mean": 1.2312735319137573,
+    "median": 1.3469772338867188,
+    "p95": 1.3745131850242616,
+    "max": 1.9944489002227783
+  },
+  "dlogdet": {
+    "mean": 0.00780813442543149,
+    "median": 0.014055252075195312,
+    "p95_abs": 0.28132000565528864,
+    "max_abs": 2.4866690635681152
+  },
+  "angle_diff_rad": {
+    "mean": 1.3538199663162231,
+    "median": 1.5124194622039795,
+    "p95": 1.5661280274391174,
+    "max": 1.570791482925415
+  }
+}

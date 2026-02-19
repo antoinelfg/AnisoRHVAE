@@ -1,0 +1,39 @@
+{
+  "model_path": "outputs/metric_core4_sweep/2026-02-17_13-53-54",
+  "steps": 60,
+  "n_lf_inner": 12,
+  "eps": 0.02,
+  "volume_power": 3.0,
+  "fp_steps": 3,
+  "fp_damping": 0.72,
+  "seeds": [
+    13,
+    14
+  ],
+  "cases": [
+    {
+      "name": "std_metropolis_off",
+      "use_dual_metric": false,
+      "use_metropolis": false,
+      "momentum_persist": 0.0
+    },
+    {
+      "name": "std_metropolis_on",
+      "use_dual_metric": false,
+      "use_metropolis": true,
+      "momentum_persist": 0.0
+    },
+    {
+      "name": "dual_metropolis_off",
+      "use_dual_metric": true,
+      "use_metropolis": false,
+      "momentum_persist": 0.0
+    },
+    {
+      "name": "dual_metropolis_on",
+      "use_dual_metric": true,
+      "use_metropolis": true,
+      "momentum_persist": 0.0
+    }
+  ]
+}

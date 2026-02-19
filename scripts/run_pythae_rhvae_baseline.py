@@ -143,8 +143,8 @@ def _subsample_centroids(model, max_centroids, seed):
     print(f"[RHVAE BASELINE] Subsampled centroids: {n_total} → {max_centroids}")
 
 
-def _suggest_temperature(centroids, sample_cap=2000):
-    """Heuristic: median nearest-neighbor distance."""
+def _suggest_temperature(centroids, sample_cap=2000, stat="median_nn"):
+    """Centroid-distance heuristic for RHVAE temperature."""
     if not isinstance(centroids, torch.Tensor) or centroids.shape[0] < 2:
         return None
     c = centroids.detach().cpu()
@@ -154,9 +154,16 @@ def _suggest_temperature(centroids, sample_cap=2000):
         c = c.index_select(0, idx)
     dists = torch.cdist(c, c)
     dists.fill_diagonal_(float("inf"))
+    if stat == "mean_pairwise":
+        finite = dists[torch.isfinite(dists)]
+        if finite.numel() == 0:
+            return None
+        return float(finite.mean().item())
     nn = dists.min(dim=1).values
     if nn.numel() == 0:
         return None
+    if stat == "mean_nn":
+        return float(nn.mean().item())
     return float(nn.median().item())
 
 
@@ -480,6 +487,8 @@ def train_rhvae_with_logging(
     max_centroids=None,
     centroid_seed=42,
     auto_temperature=False,
+    auto_temperature_stat="median_nn",
+    auto_temperature_every=0,
     temperature_scale=1.0,
 ):
     """Training loop with full logging and visualization."""
@@ -588,15 +597,25 @@ def train_rhvae_with_logging(
             with torch.no_grad():
                 model.update()
         _subsample_centroids(model, max_centroids, centroid_seed)
-        if auto_temperature and not getattr(model, "_auto_temperature_set", False):
+        if auto_temperature:
+            if int(auto_temperature_every) <= 0:
+                should_update_temp = not getattr(model, "_auto_temperature_set", False)
+            else:
+                should_update_temp = (epoch % max(1, int(auto_temperature_every))) == 0
+        else:
+            should_update_temp = False
+        if should_update_temp:
             centroids_now = _get_centroids_tensor(model)
-            suggested = _suggest_temperature(centroids_now)
+            suggested = _suggest_temperature(centroids_now, stat=auto_temperature_stat)
             if suggested is not None:
                 new_T = max(1e-6, float(temperature_scale) * suggested)
                 with torch.no_grad():
                     model.temperature.fill_(new_T)
                 model._auto_temperature_set = True
-                print(f"[RHVAE BASELINE] Auto temperature set: T={new_T:.4f} (median NN={suggested:.4f})")
+                print(
+                    "[RHVAE BASELINE] Auto temperature set: "
+                    f"T={new_T:.4f} (stat={auto_temperature_stat}, base={suggested:.4f})"
+                )
 
         # Validation - RHVAE needs gradients for RHMC, so we keep requires_grad
         if val_loader is not None:
@@ -818,6 +837,18 @@ def main():
     parser.add_argument('--max_frames', type=int, default=None)
     parser.add_argument('--max_centroids', type=int, default=None)
     parser.add_argument('--auto_temperature', action='store_true')
+    parser.add_argument(
+        '--auto_temperature_stat',
+        type=str,
+        default='median_nn',
+        choices=['median_nn', 'mean_nn', 'mean_pairwise'],
+    )
+    parser.add_argument(
+        '--auto_temperature_every',
+        type=int,
+        default=0,
+        help='0 sets temperature once after metric update; >0 updates every N epochs.',
+    )
     parser.add_argument('--temperature_scale', type=float, default=1.0)
     parser.add_argument('--vis_every', type=int, default=10, help='Visualize every N epochs')
     parser.add_argument('--seed', type=int, default=42)
@@ -849,6 +880,31 @@ def main():
     parser.add_argument('--void_decay_scale', type=float, default=1.0)
     parser.add_argument('--void_decay_power', type=float, default=2.0)
     parser.add_argument('--void_decay_softplus_k', type=float, default=5.0)
+    parser.add_argument(
+        '--void_eigshape_mode',
+        type=str,
+        default='none',
+        choices=['none', 'det_preserving_spectral'],
+        help='Optional determinant-preserving spectral reshaping for void branch.',
+    )
+    parser.add_argument(
+        '--void_eigshape_alpha_min',
+        type=float,
+        default=1.0,
+        help='Apply void eigenshape only where alpha >= threshold.',
+    )
+    parser.add_argument(
+        '--void_eigshape_power',
+        type=float,
+        default=-1.0,
+        help="Eigenshape exponent s in lambda' = g * (lambda/g)^s.",
+    )
+    parser.add_argument(
+        '--void_eigshape_eig_floor',
+        type=float,
+        default=1e-8,
+        help='Eigenvalue floor used during eigenshape reconstruction.',
+    )
     parser.add_argument('--radial_stretch', type=float, default=10.0)
     parser.add_argument('--transition_steepness', type=float, default=5.0)
     parser.add_argument('--kernel_type', type=str, default='isotropic', choices=['isotropic', 'mahalanobis'])
@@ -877,9 +933,9 @@ def main():
     parser.add_argument(
         '--analysis_rhmc_sampler',
         type=str,
-        default='riemannian',
-        choices=['riemannian', 'geodesic'],
-        help='RHMC sampler for analysis (riemannian or geodesic-uniform).',
+        default=None,
+        choices=['riemannian', 'geodesic', 'volume'],
+        help='RHMC sampler for analysis (riemannian, geodesic-uniform, or volume-element).',
     )
     # Sampling diagnostics arguments
     parser.add_argument('--skip_sampling_diagnostics', action='store_true', help='Skip sampling diagnostics after training.')
@@ -888,7 +944,7 @@ def main():
         '--sampling_fid_samplers',
         type=str,
         nargs='+',
-        default=['gaussian', 'riemannian', 'geodesic'],
+        default=None,
         help='Samplers to evaluate for FID.',
     )
     parser.add_argument('--sampling_n_starts', type=int, default=12, help='Number of starting points for multi-start sampling.')
@@ -925,6 +981,14 @@ def main():
     if args.use_attractor_value is not None:
         use_attractor_flag = bool(args.use_attractor_value)
     use_attractor = use_attractor_flag or args.rhvae_variant == "attractor"
+    if args.analysis_rhmc_sampler is None:
+        args.analysis_rhmc_sampler = "volume"
+
+    if args.sampling_fid_samplers is None:
+        args.sampling_fid_samplers = ["gaussian", "volume"]
+
+    print(f"[RHVAE BASELINE] Analysis RHMC sampler: {args.analysis_rhmc_sampler}")
+    print(f"[RHVAE BASELINE] FID samplers: {args.sampling_fid_samplers}")
 
     # Initialize wandb FIRST (before training)
     wandb = None
@@ -963,6 +1027,10 @@ def main():
                 "frame_mode": args.frame_mode,
                 "max_frames": args.max_frames,
                 "seed": args.seed,
+                "auto_temperature": args.auto_temperature,
+                "auto_temperature_stat": args.auto_temperature_stat,
+                "auto_temperature_every": args.auto_temperature_every,
+                "temperature_scale": args.temperature_scale,
                 "rhvae_variant": args.rhvae_variant,
                 "use_attractor": use_attractor,
                 "void_threshold": args.void_threshold,
@@ -971,6 +1039,10 @@ def main():
                 "void_decay_scale": args.void_decay_scale,
                 "void_decay_power": args.void_decay_power,
                 "void_decay_softplus_k": args.void_decay_softplus_k,
+                "void_eigshape_mode": args.void_eigshape_mode,
+                "void_eigshape_alpha_min": args.void_eigshape_alpha_min,
+                "void_eigshape_power": args.void_eigshape_power,
+                "void_eigshape_eig_floor": args.void_eigshape_eig_floor,
                 "radial_stretch": args.radial_stretch,
                 "transition_steepness": args.transition_steepness,
                 "kernel_type": args.kernel_type,
@@ -1071,6 +1143,10 @@ def main():
             void_decay_scale=args.void_decay_scale,
             void_decay_power=args.void_decay_power,
             void_decay_softplus_k=args.void_decay_softplus_k,
+            void_eigshape_mode=args.void_eigshape_mode,
+            void_eigshape_alpha_min=args.void_eigshape_alpha_min,
+            void_eigshape_power=args.void_eigshape_power,
+            void_eigshape_eig_floor=args.void_eigshape_eig_floor,
             radial_stretch=args.radial_stretch,
             transition_steepness=args.transition_steepness,
             kernel_type=args.kernel_type,
@@ -1110,6 +1186,8 @@ def main():
         max_centroids=args.max_centroids,
         centroid_seed=args.seed,
         auto_temperature=args.auto_temperature,
+        auto_temperature_stat=args.auto_temperature_stat,
+        auto_temperature_every=args.auto_temperature_every,
         temperature_scale=args.temperature_scale,
     )
     

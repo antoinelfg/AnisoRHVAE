@@ -1,0 +1,504 @@
+{
+  "metadata": {
+    "created_at": "2026-02-10T17:46:41.353930",
+    "device": "cuda",
+    "protocols": [
+      "strict",
+      "matched"
+    ],
+    "sampling_seeds": [
+      13,
+      29
+    ],
+    "run_quality": true,
+    "run_fid": false,
+    "quick_mode": true,
+    "save_plots": true,
+    "wandb_enabled": true
+  },
+  "summary": {
+    "strict": {
+      "baseline": {
+        "n_rows": 2,
+        "metrics": {
+          "acceptance_mean": {
+            "mean": 1.0,
+            "std": 0.0,
+            "ci95_low": 1.0,
+            "ci95_high": 1.0,
+            "n": 2
+          },
+          "dh_p95_abs": {
+            "mean": 0.01831994801759719,
+            "std": 0.0014660492539405826,
+            "ci95_low": 0.01685389876365661,
+            "ci95_high": 0.019785997271537775,
+            "n": 2
+          },
+          "h_drift_slope_abs_mean": {
+            "mean": 0.013496743889682026,
+            "std": 0.005237127087384387,
+            "ci95_low": 0.008259616802297639,
+            "ci95_high": 0.018733870977066414,
+            "n": 2
+          },
+          "ess_norm_min": {
+            "mean": 25.499035055400526,
+            "std": 0.16327678256023503,
+            "ci95_low": 25.33575827284029,
+            "ci95_high": 25.66231183796076,
+            "n": 2
+          },
+          "iact_median": {
+            "mean": 36.853217440267116,
+            "std": 0.9818477709099511,
+            "ci95_low": 35.871369669357165,
+            "ci95_high": 37.83506521117707,
+            "n": 2
+          },
+          "coverage_local": {
+            "mean": 0.02734375,
+            "std": 0.00390625,
+            "ci95_low": 0.0234375,
+            "ci95_high": 0.03125,
+            "n": 2
+          },
+          "rescue_rate": {
+            "mean": 0.0,
+            "std": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.0,
+            "n": 2
+          },
+          "median_steps_to_manifold": {
+            "mean": 21.0,
+            "std": 0.0,
+            "ci95_low": 21.0,
+            "ci95_high": 21.0,
+            "n": 2
+          },
+          "plateau_fraction": {
+            "mean": 0.625,
+            "std": 0.125,
+            "ci95_low": 0.5,
+            "ci95_high": 0.75,
+            "n": 2
+          },
+          "alignment_mean": {
+            "mean": 0.49883004783411455,
+            "std": 0.00047265957283648685,
+            "ci95_low": 0.49835738826127807,
+            "ci95_high": 0.49930270740695104,
+            "n": 2
+          },
+          "quality_precision": {
+            "mean": 0.11875000223517418,
+            "std": 0.0312500037252903,
+            "ci95_low": 0.08749999850988388,
+            "ci95_high": 0.15000000596046448,
+            "n": 2
+          },
+          "quality_recall": {
+            "mean": 0.75,
+            "std": 0.11250001192092896,
+            "ci95_low": 0.637499988079071,
+            "ci95_high": 0.862500011920929,
+            "n": 2
+          },
+          "quality_diversity": {
+            "mean": 1.8178725242614746,
+            "std": 0.07021033763885498,
+            "ci95_low": 1.7476621866226196,
+            "ci95_high": 1.8880828619003296,
+            "n": 2
+          },
+          "fid": null
+        },
+        "sampler_config": {
+          "sampler_name": "volume_riemannian",
+          "exact": true,
+          "volume_power": 1.0,
+          "n_lf": 10,
+          "eps_lf": 0.01,
+          "momentum_persist": 0.0,
+          "fp_steps": 3,
+          "fp_damping": 0.7
+        }
+      },
+      "aniso": {
+        "n_rows": 2,
+        "metrics": {
+          "acceptance_mean": {
+            "mean": 0.996875,
+            "std": 0.003124999999999989,
+            "ci95_low": 0.99375,
+            "ci95_high": 1.0,
+            "n": 2
+          },
+          "dh_p95_abs": {
+            "mean": 0.01986940503120419,
+            "std": 0.0009066760540008597,
+            "ci95_low": 0.018962728977203334,
+            "ci95_high": 0.020776081085205053,
+            "n": 2
+          },
+          "h_drift_slope_abs_mean": {
+            "mean": 0.014357827191914987,
+            "std": 0.006140645394857227,
+            "ci95_low": 0.00821718179705776,
+            "ci95_high": 0.020498472586772214,
+            "n": 2
+          },
+          "ess_norm_min": {
+            "mean": 32.871072738308115,
+            "std": 3.485311356438185,
+            "ci95_low": 29.385761381869926,
+            "ci95_high": 36.356384094746296,
+            "n": 2
+          },
+          "iact_median": {
+            "mean": 26.07292699303357,
+            "std": 0.08317095844596167,
+            "ci95_low": 25.989756034587607,
+            "ci95_high": 26.15609795147953,
+            "n": 2
+          },
+          "coverage_local": {
+            "mean": 0.02734375,
+            "std": 0.01171875,
+            "ci95_low": 0.015625,
+            "ci95_high": 0.0390625,
+            "n": 2
+          },
+          "rescue_rate": {
+            "mean": 0.375,
+            "std": 0.125,
+            "ci95_low": 0.25,
+            "ci95_high": 0.5,
+            "n": 2
+          },
+          "median_steps_to_manifold": {
+            "mean": 10.25,
+            "std": 7.75,
+            "ci95_low": 2.5,
+            "ci95_high": 18.0,
+            "n": 2
+          },
+          "plateau_fraction": {
+            "mean": 0.0,
+            "std": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.0,
+            "n": 2
+          },
+          "alignment_mean": {
+            "mean": 0.948339762210147,
+            "std": 0.05159825559239306,
+            "ci95_low": 0.896741506617754,
+            "ci95_high": 0.9999380178025401,
+            "n": 2
+          },
+          "quality_precision": {
+            "mean": 0.1250000037252903,
+            "std": 0.02500000223517418,
+            "ci95_low": 0.10000000149011612,
+            "ci95_high": 0.15000000596046448,
+            "n": 2
+          },
+          "quality_recall": {
+            "mean": 0.800000011920929,
+            "std": 0.08749997615814209,
+            "ci95_low": 0.7125000357627869,
+            "ci95_high": 0.887499988079071,
+            "n": 2
+          },
+          "quality_diversity": {
+            "mean": 2.0686622858047485,
+            "std": 0.05663907527923584,
+            "ci95_low": 2.0120232105255127,
+            "ci95_high": 2.1253013610839844,
+            "n": 2
+          },
+          "fid": null
+        },
+        "sampler_config": {
+          "sampler_name": "volume_riemannian",
+          "exact": true,
+          "volume_power": 1.0,
+          "n_lf": 10,
+          "eps_lf": 0.01,
+          "momentum_persist": 0.0,
+          "fp_steps": 3,
+          "fp_damping": 0.7
+        }
+      }
+    },
+    "matched": {
+      "baseline": {
+        "n_rows": 2,
+        "metrics": {
+          "acceptance_mean": {
+            "mean": 1.0,
+            "std": 0.0,
+            "ci95_low": 1.0,
+            "ci95_high": 1.0,
+            "n": 2
+          },
+          "dh_p95_abs": {
+            "mean": 0.01831994801759719,
+            "std": 0.0014660492539405826,
+            "ci95_low": 0.01685389876365661,
+            "ci95_high": 0.019785997271537775,
+            "n": 2
+          },
+          "h_drift_slope_abs_mean": {
+            "mean": 0.013496743889682026,
+            "std": 0.005237127087384387,
+            "ci95_low": 0.008259616802297639,
+            "ci95_high": 0.018733870977066414,
+            "n": 2
+          },
+          "ess_norm_min": {
+            "mean": 25.499035055400526,
+            "std": 0.16327678256023503,
+            "ci95_low": 25.33575827284029,
+            "ci95_high": 25.66231183796076,
+            "n": 2
+          },
+          "iact_median": {
+            "mean": 36.853217440267116,
+            "std": 0.9818477709099511,
+            "ci95_low": 35.871369669357165,
+            "ci95_high": 37.83506521117707,
+            "n": 2
+          },
+          "coverage_local": {
+            "mean": 0.02734375,
+            "std": 0.00390625,
+            "ci95_low": 0.0234375,
+            "ci95_high": 0.03125,
+            "n": 2
+          },
+          "rescue_rate": {
+            "mean": 0.0,
+            "std": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.0,
+            "n": 2
+          },
+          "median_steps_to_manifold": {
+            "mean": 21.0,
+            "std": 0.0,
+            "ci95_low": 21.0,
+            "ci95_high": 21.0,
+            "n": 2
+          },
+          "plateau_fraction": {
+            "mean": 0.625,
+            "std": 0.125,
+            "ci95_low": 0.5,
+            "ci95_high": 0.75,
+            "n": 2
+          },
+          "alignment_mean": {
+            "mean": 0.49883004783411455,
+            "std": 0.00047265957283648685,
+            "ci95_low": 0.49835738826127807,
+            "ci95_high": 0.49930270740695104,
+            "n": 2
+          },
+          "quality_precision": {
+            "mean": 0.11875000223517418,
+            "std": 0.0312500037252903,
+            "ci95_low": 0.08749999850988388,
+            "ci95_high": 0.15000000596046448,
+            "n": 2
+          },
+          "quality_recall": {
+            "mean": 0.75,
+            "std": 0.11250001192092896,
+            "ci95_low": 0.637499988079071,
+            "ci95_high": 0.862500011920929,
+            "n": 2
+          },
+          "quality_diversity": {
+            "mean": 1.8178725242614746,
+            "std": 0.07021033763885498,
+            "ci95_low": 1.7476621866226196,
+            "ci95_high": 1.8880828619003296,
+            "n": 2
+          },
+          "fid": null
+        },
+        "sampler_config": {
+          "sampler_name": "volume_riemannian",
+          "exact": true,
+          "volume_power": 1.0,
+          "n_lf": 10,
+          "eps_lf": 0.01,
+          "momentum_persist": 0.0,
+          "fp_steps": 3,
+          "fp_damping": 0.7
+        }
+      },
+      "aniso": {
+        "n_rows": 2,
+        "metrics": {
+          "acceptance_mean": {
+            "mean": 0.996875,
+            "std": 0.003124999999999989,
+            "ci95_low": 0.99375,
+            "ci95_high": 1.0,
+            "n": 2
+          },
+          "dh_p95_abs": {
+            "mean": 0.01986940503120419,
+            "std": 0.0009066760540008597,
+            "ci95_low": 0.018962728977203334,
+            "ci95_high": 0.020776081085205053,
+            "n": 2
+          },
+          "h_drift_slope_abs_mean": {
+            "mean": 0.014357827191914987,
+            "std": 0.006140645394857227,
+            "ci95_low": 0.00821718179705776,
+            "ci95_high": 0.020498472586772214,
+            "n": 2
+          },
+          "ess_norm_min": {
+            "mean": 32.871072738308115,
+            "std": 3.485311356438185,
+            "ci95_low": 29.385761381869926,
+            "ci95_high": 36.356384094746296,
+            "n": 2
+          },
+          "iact_median": {
+            "mean": 26.07292699303357,
+            "std": 0.08317095844596167,
+            "ci95_low": 25.989756034587607,
+            "ci95_high": 26.15609795147953,
+            "n": 2
+          },
+          "coverage_local": {
+            "mean": 0.02734375,
+            "std": 0.01171875,
+            "ci95_low": 0.015625,
+            "ci95_high": 0.0390625,
+            "n": 2
+          },
+          "rescue_rate": {
+            "mean": 0.375,
+            "std": 0.125,
+            "ci95_low": 0.25,
+            "ci95_high": 0.5,
+            "n": 2
+          },
+          "median_steps_to_manifold": {
+            "mean": 10.25,
+            "std": 7.75,
+            "ci95_low": 2.5,
+            "ci95_high": 18.0,
+            "n": 2
+          },
+          "plateau_fraction": {
+            "mean": 0.0,
+            "std": 0.0,
+            "ci95_low": 0.0,
+            "ci95_high": 0.0,
+            "n": 2
+          },
+          "alignment_mean": {
+            "mean": 0.948339762210147,
+            "std": 0.05159825559239306,
+            "ci95_low": 0.896741506617754,
+            "ci95_high": 0.9999380178025401,
+            "n": 2
+          },
+          "quality_precision": {
+            "mean": 0.1250000037252903,
+            "std": 0.02500000223517418,
+            "ci95_low": 0.10000000149011612,
+            "ci95_high": 0.15000000596046448,
+            "n": 2
+          },
+          "quality_recall": {
+            "mean": 0.800000011920929,
+            "std": 0.08749997615814209,
+            "ci95_low": 0.7125000357627869,
+            "ci95_high": 0.887499988079071,
+            "n": 2
+          },
+          "quality_diversity": {
+            "mean": 2.0686622858047485,
+            "std": 0.05663907527923584,
+            "ci95_low": 2.0120232105255127,
+            "ci95_high": 2.1253013610839844,
+            "n": 2
+          },
+          "fid": null
+        },
+        "sampler_config": {
+          "sampler_name": "volume_riemannian",
+          "exact": true,
+          "volume_power": 1.0,
+          "n_lf": 10,
+          "eps_lf": 0.01,
+          "momentum_persist": 0.0,
+          "fp_steps": 3,
+          "fp_damping": 0.7
+        }
+      }
+    }
+  },
+  "claim": {
+    "claim_validated": false,
+    "strict": {
+      "absolute": {
+        "acceptance_mean": "red",
+        "dh_p95_abs": "green",
+        "h_drift_slope_abs_mean": "yellow",
+        "ess_norm_min": "red",
+        "iact_median": "yellow",
+        "coverage_local": "red",
+        "rescue_rate": "red",
+        "median_steps_to_manifold": "green",
+        "plateau_fraction": "green"
+      },
+      "relative": {
+        "checks": {
+          "ess_norm_min": true,
+          "coverage_local": false,
+          "rescue_rate": true,
+          "median_steps_to_manifold": true
+        },
+        "n_pass": 3,
+        "n_total": 4
+      },
+      "pass": false
+    },
+    "matched": {
+      "absolute": {
+        "acceptance_mean": "red",
+        "dh_p95_abs": "green",
+        "h_drift_slope_abs_mean": "yellow",
+        "ess_norm_min": "red",
+        "iact_median": "yellow",
+        "coverage_local": "red",
+        "rescue_rate": "red",
+        "median_steps_to_manifold": "green",
+        "plateau_fraction": "green"
+      },
+      "relative": {
+        "checks": {
+          "ess_norm_min": true,
+          "coverage_local": false,
+          "rescue_rate": true,
+          "median_steps_to_manifold": true
+        },
+        "n_pass": 3,
+        "n_total": 4
+      },
+      "pass": false
+    }
+  }
+}

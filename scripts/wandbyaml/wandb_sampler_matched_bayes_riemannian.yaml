@@ -1,0 +1,49 @@
+program: scripts/metric_assessment_suite.py
+method: bayes
+run_cap: 80
+metric:
+  name: sweep/objective_full_kpi_v1
+  goal: maximize
+parameters:
+  baseline_model_path:
+    value: outputs/pythae_rhvae_baseline/2026-02-09_15-04-06
+  ours_model_path:
+    value: outputs/reference_models/7K
+  matched_eps_grid:
+    min: 0.25
+    max: 0.80
+  strict_n_lf:
+    values: [20, 30, 40, 50, 60]
+  strict_volume_power:
+    min: 0.7
+    max: 1.6
+  strict_fp_steps:
+    values: [8, 12, 16, 20, 24]
+  strict_fp_damping:
+    min: 0.55
+    max: 0.95
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --profile
+  - smoke
+  - --protocols
+  - matched
+  - --aniso_only
+  - --skip_matched_pilot
+  - --sampling_seeds
+  - "13"
+  - "29"
+  - "47"
+  - --sampler_name
+  - volume_riemannian
+  - --run_quality
+  - --skip_fid
+  - --output_dir
+  - results/metric_assessment_sampler_bayes_riemannian
+  - --wandb_group
+  - metric_assessment_sampler_bayes_riemannian
+  - --wandb_name_mode
+  - auto

@@ -1,0 +1,97 @@
+{
+  "args": {
+    "model_path": "outputs/metric_core4_sweep/2026-02-17_13-53-54",
+    "output_dir": "results/rhmc_three_zone_real_metric_basic_new",
+    "dims": "0,1",
+    "seed": 13,
+    "volume_power": 3.0,
+    "steps": 120,
+    "n_lf_inner": 6,
+    "eps": 0.02,
+    "integrator": "implicit",
+    "fp_steps": 3,
+    "fp_damping": 0.72,
+    "manifold_points": 3,
+    "near_multiplier": 1.2,
+    "far_multiplier": 2.4,
+    "max_radius": 45.0,
+    "grid_n": 180,
+    "use_dual_metric": false,
+    "void_eigshape_mode": "none",
+    "void_eigshape_alpha_min": 1.0,
+    "void_eigshape_power": -1.0,
+    "void_eigshape_eig_floor": 1e-08,
+    "void_eig_flip": false,
+    "void_eig_flip_alpha_min": null,
+    "void_eig_flip_eig_floor": null,
+    "momentum_persist": 0.0,
+    "no_metropolis": false
+  },
+  "metric_eigshape": {
+    "void_eigshape_mode": "none",
+    "void_eigshape_alpha_min": 1.0,
+    "void_eigshape_power": -1.0,
+    "void_eigshape_eig_floor": 1e-08
+  },
+  "dims": [
+    0,
+    1
+  ],
+  "trajectories": [
+    {
+      "name": "manifold_1",
+      "accept_rate": 0.9916666666666667,
+      "escaped": false,
+      "escape_step": -1,
+      "distance_start": 0.0,
+      "distance_end": 0.08339180797338486,
+      "logdet_inv_start": 5.290622711181641,
+      "logdet_inv_end": 5.9465179443359375,
+      "speed_mean": 5.009275012214979
+    },
+    {
+      "name": "manifold_2",
+      "accept_rate": 0.9916666666666667,
+      "escaped": false,
+      "escape_step": -1,
+      "distance_start": 0.0,
+      "distance_end": 0.2842048406600952,
+      "logdet_inv_start": 5.292236328125,
+      "logdet_inv_end": 4.586662292480469,
+      "speed_mean": 4.158870866646369
+    },
+    {
+      "name": "manifold_3",
+      "accept_rate": 0.9833333333333333,
+      "escaped": false,
+      "escape_step": -1,
+      "distance_start": 0.0,
+      "distance_end": 0.056497324258089066,
+      "logdet_inv_start": 4.92345666885376,
+      "logdet_inv_end": 5.621925354003906,
+      "speed_mean": 5.370784409840902
+    },
+    {
+      "name": "near_outside",
+      "accept_rate": 0.9833333333333333,
+      "escaped": false,
+      "escape_step": -1,
+      "distance_start": 1.034109115600586,
+      "distance_end": 0.07506202906370163,
+      "logdet_inv_start": 1.8629341125488281,
+      "logdet_inv_end": 4.277355194091797,
+      "speed_mean": 3.2848118714988233
+    },
+    {
+      "name": "far_outside",
+      "accept_rate": 1.0,
+      "escaped": false,
+      "escape_step": -1,
+      "distance_start": 7.238760471343994,
+      "distance_end": 9.91836929321289,
+      "logdet_inv_start": 1.3447964191436768,
+      "logdet_inv_end": 1.077699899673462,
+      "speed_mean": 2.780523468926549
+    }
+  ]
+}

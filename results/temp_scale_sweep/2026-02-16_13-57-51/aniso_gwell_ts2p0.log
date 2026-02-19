@@ -1,0 +1,122 @@
+[train_rhvae_tensor] loader: train_n=500 batch_size=128 drop_last=True
+[train_rhvae_tensor] auto temperature set: T=0.0208 (stat=mean_nn, base=0.0104)
+[train_rhvae_tensor] mode=aniso epoch=1 train=16.1129 val=2.9689
+[train_rhvae_tensor] auto temperature set: T=0.0134 (stat=mean_nn, base=0.0067)
+[train_rhvae_tensor] mode=aniso epoch=2 train=6.0058 val=3.3425
+[train_rhvae_tensor] auto temperature set: T=0.0098 (stat=mean_nn, base=0.0049)
+[train_rhvae_tensor] mode=aniso epoch=3 train=5.0138 val=3.5060
+[train_rhvae_tensor] auto temperature set: T=0.0105 (stat=mean_nn, base=0.0053)
+[train_rhvae_tensor] mode=aniso epoch=4 train=4.1743 val=3.0966
+[train_rhvae_tensor] auto temperature set: T=0.0116 (stat=mean_nn, base=0.0058)
+[train_rhvae_tensor] mode=aniso epoch=5 train=3.3233 val=3.0541
+[train_rhvae_tensor] auto temperature set: T=0.0118 (stat=mean_nn, base=0.0059)
+[train_rhvae_tensor] mode=aniso epoch=6 train=2.8627 val=3.0590
+[train_rhvae_tensor] auto temperature set: T=0.0132 (stat=mean_nn, base=0.0066)
+[train_rhvae_tensor] mode=aniso epoch=7 train=2.4888 val=2.8497
+[train_rhvae_tensor] auto temperature set: T=0.0137 (stat=mean_nn, base=0.0068)
+[train_rhvae_tensor] mode=aniso epoch=8 train=2.3987 val=2.9750
+[train_rhvae_tensor] auto temperature set: T=0.0122 (stat=mean_nn, base=0.0061)
+[train_rhvae_tensor] mode=aniso epoch=9 train=2.2671 val=2.8593
+[train_rhvae_tensor] auto temperature set: T=0.0106 (stat=mean_nn, base=0.0053)
+[train_rhvae_tensor] mode=aniso epoch=10 train=2.2920 val=3.0855
+[train_rhvae_tensor] auto temperature set: T=0.0123 (stat=mean_nn, base=0.0062)
+[train_rhvae_tensor] mode=aniso epoch=11 train=2.0869 val=2.8845
+[train_rhvae_tensor] auto temperature set: T=0.0140 (stat=mean_nn, base=0.0070)
+[train_rhvae_tensor] mode=aniso epoch=12 train=1.8727 val=2.8519
+[train_rhvae_tensor] auto temperature set: T=0.0130 (stat=mean_nn, base=0.0065)
+[train_rhvae_tensor] mode=aniso epoch=13 train=1.9470 val=2.8927
+[train_rhvae_tensor] auto temperature set: T=0.0108 (stat=mean_nn, base=0.0054)
+[train_rhvae_tensor] mode=aniso epoch=14 train=2.0208 val=2.8565
+[train_rhvae_tensor] auto temperature set: T=0.0093 (stat=mean_nn, base=0.0046)
+[train_rhvae_tensor] mode=aniso epoch=15 train=2.1977 val=3.0971
+[train_rhvae_tensor] auto temperature set: T=0.0083 (stat=mean_nn, base=0.0041)
+[train_rhvae_tensor] mode=aniso epoch=16 train=2.1421 val=3.1103
+[train_rhvae_tensor] auto temperature set: T=0.0078 (stat=mean_nn, base=0.0039)
+[train_rhvae_tensor] mode=aniso epoch=17 train=2.2405 val=3.1748
+[train_rhvae_tensor] auto temperature set: T=0.0082 (stat=mean_nn, base=0.0041)
+[train_rhvae_tensor] mode=aniso epoch=18 train=2.1620 val=3.1395
+[train_rhvae_tensor] auto temperature set: T=0.0075 (stat=mean_nn, base=0.0038)
+[train_rhvae_tensor] mode=aniso epoch=19 train=2.1856 val=3.1501
+[train_rhvae_tensor] auto temperature set: T=0.0067 (stat=mean_nn, base=0.0033)
+[train_rhvae_tensor] mode=aniso epoch=20 train=2.2583 val=3.2551
+[train_rhvae_tensor] auto temperature set: T=0.0077 (stat=mean_nn, base=0.0038)
+[train_rhvae_tensor] mode=aniso epoch=21 train=2.2884 val=3.1219
+[train_rhvae_tensor] auto temperature set: T=0.0076 (stat=mean_nn, base=0.0038)
+[train_rhvae_tensor] mode=aniso epoch=22 train=2.1650 val=3.1523
+[train_rhvae_tensor] auto temperature set: T=0.0074 (stat=mean_nn, base=0.0037)
+[train_rhvae_tensor] mode=aniso epoch=23 train=2.0076 val=3.0035
+[train_rhvae_tensor] auto temperature set: T=0.0082 (stat=mean_nn, base=0.0041)
+[train_rhvae_tensor] mode=aniso epoch=24 train=2.0349 val=3.0388
+[train_rhvae_tensor] auto temperature set: T=0.0088 (stat=mean_nn, base=0.0044)
+[train_rhvae_tensor] mode=aniso epoch=25 train=1.9625 val=3.0105
+[train_rhvae_tensor] auto temperature set: T=0.0095 (stat=mean_nn, base=0.0047)
+[train_rhvae_tensor] mode=aniso epoch=26 train=2.0027 val=3.1590
+[train_rhvae_tensor] auto temperature set: T=0.0086 (stat=mean_nn, base=0.0043)
+[train_rhvae_tensor] mode=aniso epoch=27 train=2.0792 val=3.1063
+[train_rhvae_tensor] auto temperature set: T=0.0075 (stat=mean_nn, base=0.0037)
+[train_rhvae_tensor] mode=aniso epoch=28 train=2.1230 val=3.1698
+[train_rhvae_tensor] auto temperature set: T=0.0071 (stat=mean_nn, base=0.0035)
+[train_rhvae_tensor] mode=aniso epoch=29 train=2.1102 val=3.1302
+[train_rhvae_tensor] auto temperature set: T=0.0068 (stat=mean_nn, base=0.0034)
+[train_rhvae_tensor] mode=aniso epoch=30 train=2.2129 val=3.2002
+[train_rhvae_tensor] auto temperature set: T=0.0068 (stat=mean_nn, base=0.0034)
+[train_rhvae_tensor] mode=aniso epoch=31 train=2.0909 val=3.1659
+[train_rhvae_tensor] auto temperature set: T=0.0069 (stat=mean_nn, base=0.0034)
+[train_rhvae_tensor] mode=aniso epoch=32 train=2.2277 val=3.2573
+[train_rhvae_tensor] auto temperature set: T=0.0072 (stat=mean_nn, base=0.0036)
+[train_rhvae_tensor] mode=aniso epoch=33 train=2.1850 val=3.2139
+[train_rhvae_tensor] auto temperature set: T=0.0070 (stat=mean_nn, base=0.0035)
+[train_rhvae_tensor] mode=aniso epoch=34 train=2.1763 val=3.1682
+[train_rhvae_tensor] auto temperature set: T=0.0078 (stat=mean_nn, base=0.0039)
+[train_rhvae_tensor] mode=aniso epoch=35 train=2.1401 val=3.1835
+[train_rhvae_tensor] auto temperature set: T=0.0068 (stat=mean_nn, base=0.0034)
+[train_rhvae_tensor] mode=aniso epoch=36 train=2.1241 val=3.0709
+[train_rhvae_tensor] auto temperature set: T=0.0062 (stat=mean_nn, base=0.0031)
+[train_rhvae_tensor] mode=aniso epoch=37 train=2.0628 val=3.1091
+[train_rhvae_tensor] auto temperature set: T=0.0063 (stat=mean_nn, base=0.0032)
+[train_rhvae_tensor] mode=aniso epoch=38 train=2.1344 val=3.1607
+[train_rhvae_tensor] auto temperature set: T=0.0065 (stat=mean_nn, base=0.0032)
+[train_rhvae_tensor] mode=aniso epoch=39 train=2.0884 val=3.1076
+[train_rhvae_tensor] auto temperature set: T=0.0069 (stat=mean_nn, base=0.0034)
+[train_rhvae_tensor] mode=aniso epoch=40 train=2.1812 val=3.1961
+[train_rhvae_tensor] auto temperature set: T=0.0061 (stat=mean_nn, base=0.0030)
+[train_rhvae_tensor] mode=aniso epoch=41 train=2.2101 val=3.1935
+[train_rhvae_tensor] auto temperature set: T=0.0062 (stat=mean_nn, base=0.0031)
+[train_rhvae_tensor] mode=aniso epoch=42 train=2.1067 val=3.1620
+[train_rhvae_tensor] auto temperature set: T=0.0060 (stat=mean_nn, base=0.0030)
+[train_rhvae_tensor] mode=aniso epoch=43 train=2.1635 val=3.1809
+[train_rhvae_tensor] auto temperature set: T=0.0061 (stat=mean_nn, base=0.0030)
+[train_rhvae_tensor] mode=aniso epoch=44 train=2.0831 val=3.0647
+[train_rhvae_tensor] auto temperature set: T=0.0060 (stat=mean_nn, base=0.0030)
+[train_rhvae_tensor] mode=aniso epoch=45 train=2.0402 val=3.0868
+[train_rhvae_tensor] auto temperature set: T=0.0058 (stat=mean_nn, base=0.0029)
+[train_rhvae_tensor] mode=aniso epoch=46 train=2.1990 val=3.2457
+[train_rhvae_tensor] auto temperature set: T=0.0055 (stat=mean_nn, base=0.0027)
+[train_rhvae_tensor] mode=aniso epoch=47 train=2.1289 val=3.1280
+[train_rhvae_tensor] auto temperature set: T=0.0056 (stat=mean_nn, base=0.0028)
+[train_rhvae_tensor] mode=aniso epoch=48 train=2.1656 val=3.2696
+[train_rhvae_tensor] auto temperature set: T=0.0060 (stat=mean_nn, base=0.0030)
+[train_rhvae_tensor] mode=aniso epoch=49 train=2.1796 val=3.2324
+[train_rhvae_tensor] auto temperature set: T=0.0059 (stat=mean_nn, base=0.0030)
+[train_rhvae_tensor] mode=aniso epoch=50 train=2.2073 val=3.2748
+[train_rhvae_tensor] auto temperature set: T=0.0053 (stat=mean_nn, base=0.0026)
+[train_rhvae_tensor] mode=aniso epoch=51 train=2.1826 val=3.3308
+[train_rhvae_tensor] auto temperature set: T=0.0055 (stat=mean_nn, base=0.0027)
+[train_rhvae_tensor] mode=aniso epoch=52 train=2.1872 val=3.1938
+[train_rhvae_tensor] auto temperature set: T=0.0054 (stat=mean_nn, base=0.0027)
+[train_rhvae_tensor] mode=aniso epoch=53 train=2.1831 val=3.2238
+[train_rhvae_tensor] auto temperature set: T=0.0054 (stat=mean_nn, base=0.0027)
+[train_rhvae_tensor] mode=aniso epoch=54 train=2.1052 val=6.3948
+[train_rhvae_tensor] auto temperature set: T=0.0054 (stat=mean_nn, base=0.0027)
+[train_rhvae_tensor] mode=aniso epoch=55 train=2.1406 val=3.1017
+[train_rhvae_tensor] auto temperature set: T=0.0056 (stat=mean_nn, base=0.0028)
+[train_rhvae_tensor] mode=aniso epoch=56 train=2.1699 val=3.2242
+[train_rhvae_tensor] auto temperature set: T=0.0051 (stat=mean_nn, base=0.0026)
+[train_rhvae_tensor] mode=aniso epoch=57 train=2.1597 val=3.1010
+[train_rhvae_tensor] auto temperature set: T=0.0054 (stat=mean_nn, base=0.0027)
+[train_rhvae_tensor] mode=aniso epoch=58 train=2.1134 val=3.2254
+[train_rhvae_tensor] auto temperature set: T=0.0052 (stat=mean_nn, base=0.0026)
+[train_rhvae_tensor] mode=aniso epoch=59 train=2.0662 val=3.1309
+[train_rhvae_tensor] auto temperature set: T=0.0057 (stat=mean_nn, base=0.0028)
+[train_rhvae_tensor] mode=aniso epoch=60 train=2.0309 val=3.0737
+[train_rhvae_tensor] output_dir=/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/toy2d_temp_sweep/moons_v1/aniso_gwell_ts2p0/N500/seed013/2026-02-16_14-03-05

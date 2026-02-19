@@ -1,0 +1,61 @@
+# GeometryRHVAE: 200 epochs, tuned for tangential base metric + stable void rescue
+
+# === TRAINING ===
+epochs: 200
+batch_size: 64
+lr: 0.0005
+seed: 42
+
+# === DATA ===
+num_sequences: 200
+max_frames: 3000
+frame_mode: t0
+
+# === MODEL ARCHITECTURE ===
+latent_dim: 2
+n_centroids: 120
+rhvae_variant: geometry
+
+# === METRIC CONFIGURATION ===
+use_attractor: true
+kernel_type: mahalanobis
+atom_norm: trace
+atom_power: 1.2
+kernel_power: 1.0
+precision_jitter: 0.02
+
+# === TEMPERATURE & REGULARIZATION ===
+temperature: 0.7
+regularization: 0.6
+
+# === VOID/MANIFOLD BOUNDARY ===
+# Use weight threshold to keep base region wider around data
+void_weight_threshold: 0.15
+void_threshold: 1.2
+transition_steepness: 6.0
+radial_stretch: 10.0
+
+# === VOID DECAY (keep gradient alive without hard plateaus) ===
+void_decay_type: invquad
+void_decay_scale: 10.0
+void_decay_power: 1.2
+void_decay_softplus_k: 5.0
+
+# === ATTRACTOR CONFIGURATION ===
+attractor_metric: mahalanobis
+attractor_smoothness: hard
+attractor_use_det: true
+attractor_k_nearest: 1
+attractor_gamma: 8.0
+attractor_bias_energy: 25.0
+
+# === ANALYSIS / SAMPLING ===
+analysis_rhmc_sampler: volume
+skip_sampling_diagnostics: true
+sampling_fid_samples: 200
+sampling_fid_samplers: [gaussian, volume]
+sampling_n_starts: 12
+sampling_n_interp_pairs: 4
+sampling_quality_samples: 200
+sampling_n_chains: 4
+sampling_chain_length: 100

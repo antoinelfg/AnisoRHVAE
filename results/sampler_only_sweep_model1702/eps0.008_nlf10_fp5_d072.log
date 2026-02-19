@@ -1,0 +1,11 @@
+[info] plotting disabled (use --save_plots to save PNG outputs).
+[info] profile='smoke' active for shorter benchmark runtime.
+[warning] Running 2-seed prefilter mode. Final ranking should be rerun with 3 seeds.
+[info] aniso-only mode enabled: baseline model will be skipped.
+[info] matched pilot selection disabled: using provided matched_eps_grid directly.
+[info] wandb disabled (no --wandb_project and no WANDB_* sweep/run env).
+[pilot][matched] skipped -> using eps_lf=0.00800 for all active models
+
+=== Protocol: matched ===
+  aniso: n_lf=10, eps_lf=0.00800, volume_power=0.800
+    seed=13
