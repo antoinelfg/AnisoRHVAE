@@ -1,4 +1,6 @@
 outputs/
+results/
+configs/
 *.pt
 *.png
 *.csv

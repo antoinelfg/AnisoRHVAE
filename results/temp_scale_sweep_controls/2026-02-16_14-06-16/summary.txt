@@ -1,4 +1,0 @@
-[ctrl] START T=0.05
-[ctrl] END T=0.05 rc=0 log=results/temp_scale_sweep_controls/2026-02-16_14-06-16/aniso_gwell_fixedT0p05.log
-[ctrl] START T=0.5
-[ctrl] END T=0.5 rc=0 log=results/temp_scale_sweep_controls/2026-02-16_14-06-16/aniso_gwell_fixedT0p5.log
