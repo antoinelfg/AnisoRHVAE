@@ -29,6 +29,9 @@ def init_wandb_run(
     mode: str | None,
     config: dict[str, Any] | None,
     name_prefix: str,
+    run_id: str | None = None,
+    resume: str | None = None,
+    job_type: str | None = None,
 ) -> Any | None:
     if mode:
         os.environ["WANDB_MODE"] = mode
@@ -40,6 +43,8 @@ def init_wandb_run(
 
     resolved_project = project or os.environ.get("WANDB_PROJECT")
     resolved_entity = entity or os.environ.get("WANDB_ENTITY")
+    resolved_run_id = run_id or os.environ.get("WANDB_RUN_ID")
+    resolved_resume = resume or os.environ.get("WANDB_RESUME")
     if not resolved_project:
         return None
 
@@ -61,6 +66,12 @@ def init_wandb_run(
         kwargs["tags"] = parsed_tags
     if resolved_name:
         kwargs["name"] = resolved_name
+    if resolved_run_id:
+        kwargs["id"] = resolved_run_id
+    if resolved_resume:
+        kwargs["resume"] = resolved_resume
+    if job_type:
+        kwargs["job_type"] = job_type
 
     try:
         run = _wandb.init(**kwargs)

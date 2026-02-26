@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import math
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -51,7 +53,15 @@ def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, cwd=ROOT, check=True)
 
 
-def _extend_wandb_args(cmd: list[str], args: argparse.Namespace, model_id: str, n: int, seed: int) -> list[str]:
+def _extend_wandb_args(
+    cmd: list[str],
+    args: argparse.Namespace,
+    model_id: str,
+    n: int,
+    seed: int,
+    *,
+    include_wandb_mode: bool = True,
+) -> list[str]:
     out = list(cmd)
 
     if args.wandb_project:
@@ -62,7 +72,7 @@ def _extend_wandb_args(cmd: list[str], args: argparse.Namespace, model_id: str, 
         out.extend(["--wandb_group", args.wandb_group])
     if args.wandb_tags:
         out.extend(["--wandb_tags", args.wandb_tags])
-    if args.wandb_mode:
+    if include_wandb_mode and args.wandb_mode:
         out.extend(["--wandb_mode", args.wandb_mode])
 
     out.extend(["--wandb_name_mode", args.wandb_name_mode])
@@ -72,6 +82,78 @@ def _extend_wandb_args(cmd: list[str], args: argparse.Namespace, model_id: str, 
         run_name = f"low_data_{model_id}_N{int(n):03d}_seed{int(seed):03d}"
     out.extend(["--wandb_run_name", run_name])
     return out
+
+
+def _core4_spatial_geometry_args() -> list[str]:
+    return [
+        "--rhvae_variant",
+        "geometry",
+        "--use_attractor",
+        "--kernel_type",
+        "mahalanobis",
+        "--atom_norm",
+        "trace",
+        "--atom_power",
+        "1.0959864113997024",
+        "--kernel_power",
+        "1.0",
+        "--precision_jitter",
+        "0.01",
+        "--attractor_smoothness",
+        "soft",
+        "--attractor_metric",
+        "mahalanobis",
+        "--attractor_use_det",
+        "--attractor_gamma",
+        "7.624554217806352",
+        "--attractor_k_nearest",
+        "1",
+        "--attractor_bias_energy",
+        "18.0",
+        "--void_threshold",
+        "1.2",
+        "--void_weight_threshold",
+        "-1.0",
+        "--void_decay_type",
+        "invquad",
+        "--void_decay_scale",
+        "8.87131893173153",
+        "--void_decay_power",
+        "1.7447710342008058",
+        "--void_decay_softplus_k",
+        "5.0",
+        "--radial_stretch",
+        "9.252860449508804",
+        "--transition_steepness",
+        "7.276725930229776",
+        "--void_eigshape_mode",
+        "det_preserving_spectral",
+        "--void_eigshape_alpha_min",
+        "0.8",
+        "--void_eigshape_power",
+        "-1.2",
+        "--void_eigshape_eig_floor",
+        "1e-8",
+    ]
+
+
+def _n_to_num_sequences(n: int, train_ratio: float = 0.8) -> int:
+    safe_ratio = max(1e-6, min(float(train_ratio), 0.999999))
+    return max(1, int(math.ceil(float(n) / safe_ratio)))
+
+
+def _resolve_num_sequences(n: int, mode: str, fixed: int) -> int:
+    if str(mode) == "fixed":
+        return max(1, int(fixed))
+    return _n_to_num_sequences(int(n))
+
+
+def _resolve_max_frames(n: int, mode: str, fixed: int) -> int | None:
+    if str(mode) == "fixed":
+        return max(1, int(fixed))
+    if str(mode) == "n":
+        return max(1, int(n))
+    return None
 
 
 def parse_args() -> argparse.Namespace:
@@ -84,15 +166,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--subset_seeds", nargs="+", type=int, default=[13, 29, 47, 71, 89])
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--latent_dim", type=int, default=16)
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--materialize_aliases", action="store_true")
+    parser.add_argument("--force_retrain", action="store_true")
     parser.add_argument("--rhvae_drop_last", type=str, default="auto", choices=["auto", "true", "false"])
     parser.add_argument("--rhvae_auto_temperature", action="store_true")
     parser.add_argument(
         "--rhvae_auto_temperature_stat",
         type=str,
         default="median_nn",
-        choices=["median_nn", "mean_nn", "mean_pairwise"],
+        choices=["median_nn", "mean_nn", "mean_pairwise", "median_pairwise", "silverman", "mean_knn_5"],
     )
     parser.add_argument("--rhvae_auto_temperature_every", type=int, default=0)
     parser.add_argument("--rhvae_temperature_scale", type=float, default=1.0)
@@ -100,6 +184,110 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rhvae_vis_every", type=int, default=10)
     parser.add_argument("--rhvae_metric_grid_res", type=int, default=40)
     parser.add_argument("--rhvae_metric_tissot_grid_res", type=int, default=16)
+    parser.add_argument(
+        "--rhvae_standard_backend",
+        type=str,
+        default="run_with_config",
+        choices=["tensor", "run_with_config"],
+        help="Training backend for model_id=rhvae_standard.",
+    )
+    parser.add_argument(
+        "--rhvae_standard_num_sequences_mode",
+        type=str,
+        default="from_n",
+        choices=["from_n", "fixed"],
+        help="How to set num_sequences when using run_with_config backend.",
+    )
+    parser.add_argument(
+        "--rhvae_standard_num_sequences",
+        type=int,
+        default=200,
+        help="Used when --rhvae_standard_num_sequences_mode=fixed.",
+    )
+    parser.add_argument(
+        "--rhvae_standard_max_frames_mode",
+        type=str,
+        default="n",
+        choices=["n", "fixed", "none"],
+        help="How to set max_frames when using run_with_config backend.",
+    )
+    parser.add_argument(
+        "--rhvae_standard_max_frames",
+        type=int,
+        default=3000,
+        help="Used when --rhvae_standard_max_frames_mode=fixed.",
+    )
+    parser.add_argument("--rhvae_standard_frame_mode", type=str, default="t0", choices=["t0", "all"])
+    parser.add_argument("--rhvae_standard_lr", type=float, default=5e-4)
+    parser.add_argument("--rhvae_standard_n_centroids", type=int, default=100)
+    parser.add_argument("--rhvae_standard_temperature", type=float, default=0.5)
+    parser.add_argument("--rhvae_standard_regularization", type=float, default=1e-2)
+    parser.add_argument(
+        "--rhvae_standard_analysis_sampler",
+        type=str,
+        default="volume",
+        choices=["riemannian", "geodesic", "volume"],
+    )
+    parser.add_argument("--rhvae_standard_sampling_fid_samples", type=int, default=1000)
+    parser.add_argument("--rhvae_standard_sampling_quality_samples", type=int, default=500)
+    parser.add_argument("--rhvae_standard_sampling_n_chains", type=int, default=4)
+    parser.add_argument("--rhvae_standard_sampling_chain_length", type=int, default=100)
+    parser.add_argument("--rhvae_standard_skip_sampling_diagnostics", action="store_true")
+    parser.add_argument(
+        "--rhvae_aniso_profile",
+        type=str,
+        default="legacy",
+        choices=["legacy", "gravity_well", "core4_spatial"],
+    )
+    parser.add_argument(
+        "--rhvae_aniso_backend",
+        type=str,
+        default="run_with_config",
+        choices=["tensor", "run_with_config"],
+        help="Training backend for model_id=aniso.",
+    )
+    parser.add_argument(
+        "--rhvae_aniso_num_sequences_mode",
+        type=str,
+        default="from_n",
+        choices=["from_n", "fixed"],
+        help="How to set num_sequences when using run_with_config backend.",
+    )
+    parser.add_argument(
+        "--rhvae_aniso_num_sequences",
+        type=int,
+        default=200,
+        help="Used when --rhvae_aniso_num_sequences_mode=fixed.",
+    )
+    parser.add_argument(
+        "--rhvae_aniso_max_frames_mode",
+        type=str,
+        default="n",
+        choices=["n", "fixed", "none"],
+        help="How to set max_frames when using run_with_config backend.",
+    )
+    parser.add_argument(
+        "--rhvae_aniso_max_frames",
+        type=int,
+        default=3000,
+        help="Used when --rhvae_aniso_max_frames_mode=fixed.",
+    )
+    parser.add_argument("--rhvae_aniso_frame_mode", type=str, default="t0", choices=["t0", "all"])
+    parser.add_argument("--rhvae_aniso_lr", type=float, default=5e-4)
+    parser.add_argument("--rhvae_aniso_n_centroids", type=int, default=100)
+    parser.add_argument("--rhvae_aniso_temperature", type=float, default=0.7960961952783896)
+    parser.add_argument("--rhvae_aniso_regularization", type=float, default=0.6)
+    parser.add_argument(
+        "--rhvae_aniso_analysis_sampler",
+        type=str,
+        default="volume",
+        choices=["riemannian", "geodesic", "volume"],
+    )
+    parser.add_argument("--rhvae_aniso_sampling_fid_samples", type=int, default=1000)
+    parser.add_argument("--rhvae_aniso_sampling_quality_samples", type=int, default=500)
+    parser.add_argument("--rhvae_aniso_sampling_n_chains", type=int, default=4)
+    parser.add_argument("--rhvae_aniso_sampling_chain_length", type=int, default=100)
+    parser.add_argument("--rhvae_aniso_skip_sampling_diagnostics", action="store_true")
     parser.add_argument("--wandb_project", type=str, default=None)
     parser.add_argument("--wandb_entity", type=str, default=None)
     parser.add_argument("--wandb_group", type=str, default=None)
@@ -112,6 +300,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.wandb_mode:
+        os.environ["WANDB_MODE"] = str(args.wandb_mode)
 
     import yaml
 
@@ -138,7 +328,7 @@ def main() -> None:
                 model_id = str(entry["model_id"])
                 required = [str(x) for x in entry.get("required_files", [])]
                 parent = output_root / model_id / f"N{int(n):03d}" / f"seed{int(seed):03d}"
-                if _latest_run(parent, required, model_id=model_id) is not None:
+                if (not args.force_retrain) and _latest_run(parent, required, model_id=model_id) is not None:
                     print(f"[train_missing] skip existing {model_id} N={n} seed={seed}")
                     continue
 
@@ -157,6 +347,8 @@ def main() -> None:
                             str(args.epochs),
                             "--batch_size",
                             str(args.batch_size),
+                            "--latent_dim",
+                            str(args.latent_dim),
                             "--output_root",
                             args.output_root,
                             "--model_id",
@@ -169,111 +361,289 @@ def main() -> None:
                     )
                     _run(cmd)
                 elif model_id == "rhvae_standard":
-                    rhvae_extra = [
-                        "--batch_size",
-                        str(args.batch_size),
-                        "--drop_last",
-                        args.rhvae_drop_last,
-                        "--vis_every",
-                        str(args.rhvae_vis_every),
-                        "--metric_grid_res",
-                        str(args.rhvae_metric_grid_res),
-                        "--metric_tissot_grid_res",
-                        str(args.rhvae_metric_tissot_grid_res),
-                    ]
-                    if args.rhvae_auto_temperature:
-                        rhvae_extra.extend(
+                    if args.rhvae_standard_backend == "tensor":
+                        rhvae_extra = [
+                            "--batch_size",
+                            str(args.batch_size),
+                            "--drop_last",
+                            args.rhvae_drop_last,
+                            "--vis_every",
+                            str(args.rhvae_vis_every),
+                            "--metric_grid_res",
+                            str(args.rhvae_metric_grid_res),
+                            "--metric_tissot_grid_res",
+                            str(args.rhvae_metric_tissot_grid_res),
+                        ]
+                        if args.rhvae_auto_temperature:
+                            rhvae_extra.extend(
+                                [
+                                    "--auto_temperature",
+                                    "--auto_temperature_stat",
+                                    str(args.rhvae_auto_temperature_stat),
+                                    "--auto_temperature_every",
+                                    str(args.rhvae_auto_temperature_every),
+                                    "--temperature_scale",
+                                    str(args.rhvae_temperature_scale),
+                                ]
+                            )
+                        if args.rhvae_plot_heatmaps_during_training:
+                            rhvae_extra.append("--plot_heatmaps_during_training")
+                        cmd = _extend_wandb_args(
                             [
-                                "--auto_temperature",
-                                "--auto_temperature_stat",
-                                str(args.rhvae_auto_temperature_stat),
-                                "--auto_temperature_every",
-                                str(args.rhvae_auto_temperature_every),
-                                "--temperature_scale",
-                                str(args.rhvae_temperature_scale),
+                                sys.executable,
+                                "scripts/train_rhvae_tensor.py",
+                                "--mode",
+                                "standard",
+                                "--processed_dir",
+                                args.processed_dir,
+                                "--n",
+                                str(n),
+                                "--seed",
+                                str(seed),
+                                "--epochs",
+                                str(args.epochs),
+                                "--latent_dim",
+                                str(args.latent_dim),
+                                "--output_root",
+                                args.output_root,
+                                "--model_id",
+                                model_id,
                             ]
+                            + rhvae_extra,
+                            args,
+                            model_id=model_id,
+                            n=n,
+                            seed=seed,
                         )
-                    if args.rhvae_plot_heatmaps_during_training:
-                        rhvae_extra.append("--plot_heatmaps_during_training")
-                    cmd = _extend_wandb_args(
-                        [
+                        _run(cmd)
+                    elif args.rhvae_standard_backend == "run_with_config":
+                        num_sequences = _resolve_num_sequences(
+                            n=int(n),
+                            mode=str(args.rhvae_standard_num_sequences_mode),
+                            fixed=int(args.rhvae_standard_num_sequences),
+                        )
+                        max_frames = _resolve_max_frames(
+                            n=int(n),
+                            mode=str(args.rhvae_standard_max_frames_mode),
+                            fixed=int(args.rhvae_standard_max_frames),
+                        )
+
+                        output_parent = output_root / model_id / f"N{int(n):03d}" / f"seed{int(seed):03d}"
+                        output_parent.mkdir(parents=True, exist_ok=True)
+
+                        standard_cmd = [
                             sys.executable,
-                            "scripts/train_rhvae_tensor.py",
-                            "--mode",
+                            "scripts/run_pythae_rhvae_baseline.py",
+                            "--rhvae_variant",
                             "standard",
-                            "--processed_dir",
-                            args.processed_dir,
-                            "--n",
-                            str(n),
-                            "--seed",
-                            str(seed),
                             "--epochs",
                             str(args.epochs),
-                            "--output_root",
-                            args.output_root,
-                            "--model_id",
-                            model_id,
+                            "--batch_size",
+                            str(args.batch_size),
+                            "--lr",
+                            str(args.rhvae_standard_lr),
+                            "--seed",
+                            str(seed),
+                            "--output_dir",
+                            str(output_parent),
+                            "--num_sequences",
+                            str(num_sequences),
+                            "--frame_mode",
+                            str(args.rhvae_standard_frame_mode),
+                            "--latent_dim",
+                            str(args.latent_dim),
+                            "--n_centroids",
+                            str(args.rhvae_standard_n_centroids),
+                            "--regularization",
+                            str(args.rhvae_standard_regularization),
+                            "--vis_every",
+                            str(args.rhvae_vis_every),
+                            "--analysis_rhmc_sampler",
+                            str(args.rhvae_standard_analysis_sampler),
+                            "--sampling_fid_samples",
+                            str(args.rhvae_standard_sampling_fid_samples),
+                            "--sampling_quality_samples",
+                            str(args.rhvae_standard_sampling_quality_samples),
+                            "--sampling_n_chains",
+                            str(args.rhvae_standard_sampling_n_chains),
+                            "--sampling_chain_length",
+                            str(args.rhvae_standard_sampling_chain_length),
                         ]
-                        + rhvae_extra,
-                        args,
-                        model_id=model_id,
-                        n=n,
-                        seed=seed,
-                    )
-                    _run(cmd)
-                elif model_id == "aniso":
-                    rhvae_extra = [
-                        "--batch_size",
-                        str(args.batch_size),
-                        "--drop_last",
-                        args.rhvae_drop_last,
-                        "--vis_every",
-                        str(args.rhvae_vis_every),
-                        "--metric_grid_res",
-                        str(args.rhvae_metric_grid_res),
-                        "--metric_tissot_grid_res",
-                        str(args.rhvae_metric_tissot_grid_res),
-                    ]
-                    if args.rhvae_auto_temperature:
-                        rhvae_extra.extend(
-                            [
-                                "--auto_temperature",
-                                "--auto_temperature_stat",
-                                str(args.rhvae_auto_temperature_stat),
-                                "--auto_temperature_every",
-                                str(args.rhvae_auto_temperature_every),
-                                "--temperature_scale",
-                                str(args.rhvae_temperature_scale),
-                            ]
+                        if max_frames is not None:
+                            standard_cmd.extend(["--max_frames", str(max_frames)])
+                        if args.rhvae_auto_temperature:
+                            standard_cmd.extend(
+                                [
+                                    "--auto_temperature",
+                                    "--auto_temperature_stat",
+                                    str(args.rhvae_auto_temperature_stat),
+                                    "--auto_temperature_every",
+                                    str(args.rhvae_auto_temperature_every),
+                                    "--temperature_scale",
+                                    str(args.rhvae_temperature_scale),
+                                ]
+                            )
+                        else:
+                            standard_cmd.extend(["--temperature", str(args.rhvae_standard_temperature)])
+                        if args.rhvae_standard_skip_sampling_diagnostics:
+                            standard_cmd.append("--skip_sampling_diagnostics")
+
+                        cmd = _extend_wandb_args(
+                            standard_cmd,
+                            args,
+                            model_id=model_id,
+                            n=n,
+                            seed=seed,
+                            include_wandb_mode=False,
                         )
-                    if args.rhvae_plot_heatmaps_during_training:
-                        rhvae_extra.append("--plot_heatmaps_during_training")
-                    cmd = _extend_wandb_args(
-                        [
+                        _run(cmd)
+                    else:
+                        raise RuntimeError(f"Unsupported --rhvae_standard_backend={args.rhvae_standard_backend}")
+                elif model_id == "aniso":
+                    if args.rhvae_aniso_backend == "tensor":
+                        rhvae_extra = [
+                            "--batch_size",
+                            str(args.batch_size),
+                            "--drop_last",
+                            args.rhvae_drop_last,
+                            "--vis_every",
+                            str(args.rhvae_vis_every),
+                            "--metric_grid_res",
+                            str(args.rhvae_metric_grid_res),
+                            "--metric_tissot_grid_res",
+                            str(args.rhvae_metric_tissot_grid_res),
+                        ]
+                        if args.rhvae_auto_temperature:
+                            rhvae_extra.extend(
+                                [
+                                    "--auto_temperature",
+                                    "--auto_temperature_stat",
+                                    str(args.rhvae_auto_temperature_stat),
+                                    "--auto_temperature_every",
+                                    str(args.rhvae_auto_temperature_every),
+                                    "--temperature_scale",
+                                    str(args.rhvae_temperature_scale),
+                                ]
+                            )
+                        if args.rhvae_plot_heatmaps_during_training:
+                            rhvae_extra.append("--plot_heatmaps_during_training")
+                        cmd = _extend_wandb_args(
+                            [
+                                sys.executable,
+                                "scripts/train_rhvae_tensor.py",
+                                "--mode",
+                                "aniso",
+                                "--aniso_profile",
+                                str(args.rhvae_aniso_profile),
+                                "--processed_dir",
+                                args.processed_dir,
+                                "--n",
+                                str(n),
+                                "--seed",
+                                str(seed),
+                                "--epochs",
+                                str(args.epochs),
+                                "--latent_dim",
+                                str(args.latent_dim),
+                                "--output_root",
+                                args.output_root,
+                                "--model_id",
+                                model_id,
+                            ]
+                            + rhvae_extra,
+                            args,
+                            model_id=model_id,
+                            n=n,
+                            seed=seed,
+                        )
+                        _run(cmd)
+                    elif args.rhvae_aniso_backend == "run_with_config":
+                        if str(args.rhvae_aniso_profile) != "core4_spatial":
+                            raise RuntimeError(
+                                "run_with_config backend currently supports only --rhvae_aniso_profile core4_spatial. "
+                                "Use --rhvae_aniso_backend tensor for legacy/gravity_well."
+                            )
+                        num_sequences = _resolve_num_sequences(
+                            n=int(n),
+                            mode=str(args.rhvae_aniso_num_sequences_mode),
+                            fixed=int(args.rhvae_aniso_num_sequences),
+                        )
+                        max_frames = _resolve_max_frames(
+                            n=int(n),
+                            mode=str(args.rhvae_aniso_max_frames_mode),
+                            fixed=int(args.rhvae_aniso_max_frames),
+                        )
+
+                        output_parent = output_root / model_id / f"N{int(n):03d}" / f"seed{int(seed):03d}"
+                        output_parent.mkdir(parents=True, exist_ok=True)
+
+                        aniso_cmd = [
                             sys.executable,
-                            "scripts/train_rhvae_tensor.py",
-                            "--mode",
-                            "aniso",
-                            "--processed_dir",
-                            args.processed_dir,
-                            "--n",
-                            str(n),
-                            "--seed",
-                            str(seed),
+                            "scripts/run_pythae_rhvae_baseline.py",
                             "--epochs",
                             str(args.epochs),
-                            "--output_root",
-                            args.output_root,
-                            "--model_id",
-                            model_id,
+                            "--batch_size",
+                            str(args.batch_size),
+                            "--lr",
+                            str(args.rhvae_aniso_lr),
+                            "--seed",
+                            str(seed),
+                            "--output_dir",
+                            str(output_parent),
+                            "--num_sequences",
+                            str(num_sequences),
+                            "--frame_mode",
+                            str(args.rhvae_aniso_frame_mode),
+                            "--latent_dim",
+                            str(args.latent_dim),
+                            "--n_centroids",
+                            str(args.rhvae_aniso_n_centroids),
+                            "--regularization",
+                            str(args.rhvae_aniso_regularization),
+                            "--vis_every",
+                            str(args.rhvae_vis_every),
+                            "--analysis_rhmc_sampler",
+                            str(args.rhvae_aniso_analysis_sampler),
+                            "--sampling_fid_samples",
+                            str(args.rhvae_aniso_sampling_fid_samples),
+                            "--sampling_quality_samples",
+                            str(args.rhvae_aniso_sampling_quality_samples),
+                            "--sampling_n_chains",
+                            str(args.rhvae_aniso_sampling_n_chains),
+                            "--sampling_chain_length",
+                            str(args.rhvae_aniso_sampling_chain_length),
                         ]
-                        + rhvae_extra,
-                        args,
-                        model_id=model_id,
-                        n=n,
-                        seed=seed,
-                    )
-                    _run(cmd)
+                        if max_frames is not None:
+                            aniso_cmd.extend(["--max_frames", str(max_frames)])
+                        if args.rhvae_auto_temperature:
+                            aniso_cmd.extend(
+                                [
+                                    "--auto_temperature",
+                                    "--auto_temperature_stat",
+                                    str(args.rhvae_auto_temperature_stat),
+                                    "--auto_temperature_every",
+                                    str(args.rhvae_auto_temperature_every),
+                                    "--temperature_scale",
+                                    str(args.rhvae_temperature_scale),
+                                ]
+                            )
+                        else:
+                            aniso_cmd.extend(["--temperature", str(args.rhvae_aniso_temperature)])
+                        if args.rhvae_aniso_skip_sampling_diagnostics:
+                            aniso_cmd.append("--skip_sampling_diagnostics")
+
+                        aniso_cmd.extend(_core4_spatial_geometry_args())
+                        cmd = _extend_wandb_args(
+                            aniso_cmd,
+                            args,
+                            model_id=model_id,
+                            n=n,
+                            seed=seed,
+                            include_wandb_mode=False,
+                        )
+                        _run(cmd)
+                    else:
+                        raise RuntimeError(f"Unsupported --rhvae_aniso_backend={args.rhvae_aniso_backend}")
                 elif model_id == "ebm_conformal":
                     cmd = _extend_wandb_args(
                         [
@@ -285,6 +655,8 @@ def main() -> None:
                             str(n),
                             "--seed",
                             str(seed),
+                            "--latent_dim",
+                            str(args.latent_dim),
                             "--ae_epochs",
                             str(max(2, args.epochs // 2)),
                             "--ebm_epochs",

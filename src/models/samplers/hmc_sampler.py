@@ -998,6 +998,15 @@ class VolumeElementRiemannianHMCSampler(RiemannianHMCSampler):
         radial_prior_weight: float = 0.,
         radial_prior_center: torch.Tensor | None = None,
         use_dual_metric: bool = False,
+        enforce_dual_potential_well: bool = True,
+        dual_min_volume_power: float = 0.5,
+        adaptive_dual_step: bool = True,
+        adaptive_max_dual_displacement: float = 0.75,
+        adaptive_min_step_scale: float = 0.05,
+        fp_convergence_tol: float = 1e-6,
+        fp_log_warnings: bool = True,
+        fp_saturation_warn_threshold: float = 0.20,
+        dynamic_jitter_scale: float = 1e-5,
     ):
         super().__init__(
             model,
@@ -1016,6 +1025,27 @@ class VolumeElementRiemannianHMCSampler(RiemannianHMCSampler):
         self.radial_prior_weight = float(radial_prior_weight)
         self.radial_prior_center = radial_prior_center
         self.use_dual_metric = bool(use_dual_metric)
+        self.enforce_dual_potential_well = bool(enforce_dual_potential_well)
+        self.dual_min_volume_power = float(dual_min_volume_power)
+        self.adaptive_dual_step = bool(adaptive_dual_step)
+        self.adaptive_max_dual_displacement = float(adaptive_max_dual_displacement)
+        self.adaptive_min_step_scale = float(adaptive_min_step_scale)
+        self.fp_convergence_tol = float(fp_convergence_tol)
+        self.fp_log_warnings = bool(fp_log_warnings)
+        self.fp_saturation_warn_threshold = float(fp_saturation_warn_threshold)
+        self.dynamic_jitter_scale = float(dynamic_jitter_scale)
+
+        if (
+            self.use_dual_metric
+            and self.enforce_dual_potential_well
+            and self.radial_prior_weight <= 0.0
+            and self.volume_power <= (self.dual_min_volume_power + 1e-8)
+        ):
+            raise ValueError(
+                "Invalid dual RHMC configuration: use_dual_metric=True with volume_power <= 0.5 "
+                "and radial_prior_weight <= 0 cancels the potential well. "
+                "Set volume_power > 0.5 (e.g., 1.0) or enable a positive radial prior."
+            )
 
         factor = 2.0 * self.volume_power
 
@@ -1055,56 +1085,285 @@ class VolumeElementRiemannianHMCSampler(RiemannianHMCSampler):
             return grad - self.radial_prior_weight * diff
 
         self.grad_func = _grad
+        self._reset_runtime_diagnostics()
 
-    @staticmethod
-    def _sample_from_covariance(z: torch.Tensor, cov: torch.Tensor, jitter: float = 0.0) -> torch.Tensor:
-        """Sample momentum from N(0, cov) robustly."""
+    def _reset_runtime_diagnostics(self) -> None:
+        self._fp_stats = {
+            "calls": 0,
+            "momentum_iters_sum": 0.0,
+            "position_iters_sum": 0.0,
+            "momentum_saturated": 0,
+            "position_saturated": 0,
+            "non_finite_aborts": 0,
+        }
+        self._eps_stats = {
+            "calls": 0,
+            "scale_sum": 0.0,
+            "scale_min": 1.0,
+            "scale_max": 1.0,
+        }
+        self._chol_stats = {
+            "cholesky_failures": 0,
+            "eigh_fallbacks": 0,
+        }
+        self.last_fp_diagnostics = {}
+
+    def _sample_from_covariance(self, z: torch.Tensor, cov: torch.Tensor, jitter: float = 0.0) -> torch.Tensor:
+        """Sample momentum from N(0, cov) with dynamic jitter and robust fallbacks."""
+        eye = torch.eye(cov.shape[-1], device=cov.device, dtype=cov.dtype)
+        base_cov = cov
+        trace = torch.diagonal(base_cov, dim1=-2, dim2=-1).sum(dim=-1)
+        jitter_dynamic = torch.clamp(trace, min=0.0) * max(0.0, self.dynamic_jitter_scale)
         if jitter and jitter > 0:
-            eye = torch.eye(cov.shape[-1], device=cov.device, dtype=cov.dtype)
-            cov = cov + jitter * eye
+            jitter_floor = torch.full_like(jitter_dynamic, float(jitter))
+            jitter_total = torch.maximum(jitter_dynamic, jitter_floor)
+        else:
+            jitter_total = jitter_dynamic
+        if torch.any(jitter_total > 0):
+            cov = base_cov + jitter_total.view(-1, 1, 1) * eye
+        else:
+            cov = base_cov
+
         try:
             L = torch.linalg.cholesky(cov)
             gamma = torch.randn_like(z)
             return torch.einsum("bij,bj->bi", L, gamma)
         except torch.linalg.LinAlgError:
-            evals, evecs = torch.linalg.eigh(cov)
-            evals = torch.clamp(evals, min=1e-6)
-            sqrt_cov = evecs @ torch.diag_embed(torch.sqrt(evals)) @ evecs.transpose(-2, -1)
-            gamma = torch.randn_like(z)
-            return torch.einsum("bij,bj->bi", sqrt_cov, gamma)
+            self._chol_stats["cholesky_failures"] += 1
+
+        retry_jitter = torch.clamp(jitter_total, min=1e-8)
+        cov_try = cov
+        for _ in range(3):
+            retry_jitter = retry_jitter * 10.0
+            cov_try = base_cov + retry_jitter.view(-1, 1, 1) * eye
+            try:
+                L = torch.linalg.cholesky(cov_try)
+                gamma = torch.randn_like(z)
+                return torch.einsum("bij,bj->bi", L, gamma)
+            except torch.linalg.LinAlgError:
+                continue
+
+        self._chol_stats["eigh_fallbacks"] += 1
+        evals, evecs = torch.linalg.eigh(cov_try)
+        evals = torch.clamp(evals, min=1e-6)
+        sqrt_cov = evecs @ torch.diag_embed(torch.sqrt(evals)) @ evecs.transpose(-2, -1)
+        gamma = torch.randn_like(z)
+        return torch.einsum("bij,bj->bi", sqrt_cov, gamma)
+
+    def _effective_eps(self, z: torch.Tensor, rho: torch.Tensor, eps: float) -> tuple[float, float]:
+        eps_base = float(eps)
+        if not self.adaptive_dual_step:
+            return eps_base, 1.0
+
+        with torch.no_grad():
+            v = self._velocity(z.detach(), rho.detach())
+            if not torch.isfinite(v).all():
+                scale = max(0.0, min(1.0, self.adaptive_min_step_scale))
+                return eps_base * scale, scale
+            speed_max = float(torch.linalg.vector_norm(v, ord=2, dim=1).max().item())
+
+        max_displacement = max(1e-12, float(self.adaptive_max_dual_displacement))
+        step_norm = eps_base * speed_max
+        if step_norm <= max_displacement:
+            return eps_base, 1.0
+
+        scale = max_displacement / (step_norm + 1e-12)
+        scale = max(float(self.adaptive_min_step_scale), min(1.0, float(scale)))
+        return eps_base * scale, scale
+
+    @staticmethod
+    def _fp_converged(current: torch.Tensor, previous: torch.Tensor, tol: float) -> bool:
+        if tol <= 0.0:
+            return False
+        delta = float((current - previous).abs().max().item())
+        ref = float(current.abs().max().item())
+        return delta <= tol * (1.0 + ref)
+
+    def _generalized_leapfrog_step(self, z: torch.Tensor, rho: torch.Tensor, eps: float):
+        """Implicit generalized leapfrog with local step adaptation and fp diagnostics."""
+        steps = max(1, int(self.fp_steps))
+        damping = float(self.fp_damping)
+        tol = float(self.fp_convergence_tol)
+        eps_eff, eps_scale = self._effective_eps(z, rho, eps)
+
+        self._eps_stats["calls"] += 1
+        self._eps_stats["scale_sum"] += float(eps_scale)
+        self._eps_stats["scale_min"] = min(float(self._eps_stats["scale_min"]), float(eps_scale))
+        self._eps_stats["scale_max"] = max(float(self._eps_stats["scale_max"]), float(eps_scale))
+
+        rho_half = rho
+        momentum_iters = steps
+        momentum_converged = False
+        for it in range(steps):
+            rho_prev = rho_half
+            grad_z, _ = self._grad_hamiltonian_z(z, rho_half)
+            if not torch.isfinite(grad_z).all():
+                self._fp_stats["non_finite_aborts"] += 1
+                return z.detach().requires_grad_(True), rho.detach()
+            rho_update = rho - 0.5 * eps_eff * grad_z
+            rho_half = (1.0 - damping) * rho_half + damping * rho_update
+            momentum_iters = it + 1
+            if self._fp_converged(rho_half, rho_prev, tol):
+                momentum_converged = True
+                break
+
+        z_new = z
+        position_iters = steps
+        position_converged = False
+        try:
+            for it in range(steps):
+                z_prev = z_new
+                v0 = self._velocity(z, rho_half)
+                v1 = self._velocity(z_new, rho_half)
+                z_update = z + 0.5 * eps_eff * (v0 + v1)
+                z_new = (1.0 - damping) * z_new + damping * z_update
+                position_iters = it + 1
+                if not torch.isfinite(z_new).all():
+                    self._fp_stats["non_finite_aborts"] += 1
+                    return z.detach().requires_grad_(True), rho.detach()
+                if self._fp_converged(z_new, z_prev, tol):
+                    position_converged = True
+                    break
+        except (torch.linalg.LinAlgError, ValueError):
+            self._fp_stats["non_finite_aborts"] += 1
+            return z.detach().requires_grad_(True), rho.detach()
+
+        try:
+            grad_z_new, z_req = self._grad_hamiltonian_z(z_new, rho_half)
+            if not torch.isfinite(grad_z_new).all():
+                self._fp_stats["non_finite_aborts"] += 1
+                return z.detach().requires_grad_(True), rho.detach()
+        except (torch.linalg.LinAlgError, ValueError):
+            self._fp_stats["non_finite_aborts"] += 1
+            return z.detach().requires_grad_(True), rho.detach()
+        rho_new = rho_half - 0.5 * eps_eff * grad_z_new
+
+        self._fp_stats["calls"] += 1
+        self._fp_stats["momentum_iters_sum"] += float(momentum_iters)
+        self._fp_stats["position_iters_sum"] += float(position_iters)
+        if not momentum_converged:
+            self._fp_stats["momentum_saturated"] += 1
+        if not position_converged:
+            self._fp_stats["position_saturated"] += 1
+
+        return z_req, rho_new
+
+    def _finalize_runtime_diagnostics(self) -> None:
+        fp_calls = int(self._fp_stats["calls"])
+        eps_calls = int(self._eps_stats["calls"])
+
+        if fp_calls > 0:
+            momentum_iters_mean = float(self._fp_stats["momentum_iters_sum"] / fp_calls)
+            position_iters_mean = float(self._fp_stats["position_iters_sum"] / fp_calls)
+            momentum_sat_rate = float(self._fp_stats["momentum_saturated"] / fp_calls)
+            position_sat_rate = float(self._fp_stats["position_saturated"] / fp_calls)
+        else:
+            momentum_iters_mean = 0.0
+            position_iters_mean = 0.0
+            momentum_sat_rate = 0.0
+            position_sat_rate = 0.0
+
+        if eps_calls > 0:
+            eps_scale_mean = float(self._eps_stats["scale_sum"] / eps_calls)
+            eps_scale_min = float(self._eps_stats["scale_min"])
+            eps_scale_max = float(self._eps_stats["scale_max"])
+        else:
+            eps_scale_mean = 1.0
+            eps_scale_min = 1.0
+            eps_scale_max = 1.0
+
+        self.last_fp_diagnostics = {
+            "fp_calls": fp_calls,
+            "momentum_fp_iters_mean": momentum_iters_mean,
+            "position_fp_iters_mean": position_iters_mean,
+            "momentum_fp_saturation_rate": momentum_sat_rate,
+            "position_fp_saturation_rate": position_sat_rate,
+            "fp_non_finite_aborts": int(self._fp_stats["non_finite_aborts"]),
+            "eps_scale_mean": eps_scale_mean,
+            "eps_scale_min": eps_scale_min,
+            "eps_scale_max": eps_scale_max,
+            "cholesky_failures": int(self._chol_stats["cholesky_failures"]),
+            "eigh_fallbacks": int(self._chol_stats["eigh_fallbacks"]),
+        }
+
+        if self.fp_log_warnings and fp_calls > 0:
+            sat_threshold = max(0.0, float(self.fp_saturation_warn_threshold))
+            if (momentum_sat_rate >= sat_threshold) or (position_sat_rate >= sat_threshold):
+                print(
+                    "Warning: fixed-point saturation is high "
+                    f"(momentum={momentum_sat_rate:.2%}, position={position_sat_rate:.2%}, fp_steps={int(self.fp_steps)})."
+                )
+            if int(self._chol_stats["eigh_fallbacks"]) > 0:
+                print(
+                    "Warning: covariance Cholesky fallback to eigh occurred "
+                    f"{int(self._chol_stats['eigh_fallbacks'])} time(s)."
+                )
+
+    def sample(
+        self,
+        n_samples,
+        t: int = 0,
+        init_std: float = 1.0,
+        eps_jitter: float = 0.0,
+        n_lf_jitter: int = 0,
+    ):
+        self._reset_runtime_diagnostics()
+        z = super().sample(
+            n_samples=n_samples,
+            t=t,
+            init_std=init_std,
+            eps_jitter=eps_jitter,
+            n_lf_jitter=n_lf_jitter,
+        )
+        self._finalize_runtime_diagnostics()
+        return z
+
+    def get_runtime_diagnostics(self) -> Dict[str, Any]:
+        """Return the latest fixed-point and momentum-factorization diagnostics."""
+        return dict(self.last_fp_diagnostics)
+
+    def _get_mass_matrix(self, z: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Return (M, M_inv, log_det_M) based on convention."""
+        G = self.model.G(z)
+        G_inv = self.model.G_inv(z)
+        
+        if self.use_dual_metric == "zone_aware":
+            centroids = self.model.centroids_tens.to(z.device)
+            diff_eucl = centroids.unsqueeze(0) - z.unsqueeze(1)
+            min_dists_eucl = self.model._min_euclidean_distance(diff_eucl)
+            alpha = self.model._compute_alpha(min_dists_eucl).view(-1, 1, 1)
+            
+            M = (1.0 - alpha) * G + alpha * G_inv
+            M_inv = torch.linalg.inv(M)
+            log_det_M = torch.linalg.slogdet(M).logabsdet
+            return M, M_inv, log_det_M
+            
+        if self.use_dual_metric is True:
+            # Dual: M = G^{-1}, M^{-1} = G
+            log_det_M = torch.linalg.slogdet(G_inv).logabsdet
+            return G_inv, G, log_det_M
+            
+        # Standard: M = G, M^{-1} = G^{-1}
+        log_det_M = torch.linalg.slogdet(G).logabsdet
+        return G, G_inv, log_det_M
 
     def _initialize_momentum(self, z: torch.Tensor) -> torch.Tensor:
         """Sample momentum with covariance equal to the active RHMC mass matrix."""
         jitter = float(getattr(getattr(self, "metric_config", None), "cholesky_jitter", 0.0))
-        G = self.model.G(z)
-        #G = torch.linalg.inv(G)
-        cov = self.model.G_inv(z) if self.use_dual_metric else G
-        return self._sample_from_covariance(z, cov, jitter=jitter)
+        M, _, _ = self._get_mass_matrix(z)
+        return self._sample_from_covariance(z, M, jitter=jitter)
 
     def _velocity(self, z: torch.Tensor, rho: torch.Tensor) -> torch.Tensor:
         """Compute dz/dt = M^{-1}(z) rho for the active mass convention."""
-        if self.use_dual_metric:
-            G = self.model.G(z)
-            return torch.einsum("bij,bj->bi", G, rho)
-        G_inv = self.model.G_inv(z)
-        #G_inv = torch.linalg.inv(G_inv)
-        return torch.einsum("bij,bj->bi", G_inv, rho)
+        _, M_inv, _ = self._get_mass_matrix(z)
+        return torch.einsum("bij,bj->bi", M_inv, rho)
 
     def _compute_hamiltonian(self, z: torch.Tensor, rho: torch.Tensor) -> torch.Tensor:
         """Compute coherent RHMC Hamiltonian under the active metric convention."""
         potential = -self.log_pi(z)
-        if self.use_dual_metric:
-            # Dual convention: M = G^{-1}, K = 1/2 rho^T G rho, +1/2 log det(G^{-1}).
-            G = self.model.G(z)
-            kinetic = 0.5 * torch.einsum("bi,bij,bj->b", rho, G, rho)
-            log_det_mass = torch.linalg.slogdet(self.model.G_inv(z)).logabsdet
-        else:
-            # Standard convention: M = G, K = 1/2 rho^T G^{-1} rho, +1/2 log det(G).
-            G_inv = self.model.G_inv(z)
-            #G_inv = torch.linalg.inv(G_inv)
-            kinetic = 0.5 * torch.einsum("bi,bij,bj->b", rho, G_inv, rho)
-            log_det_mass = torch.linalg.slogdet(self.model.G(z)).logabsdet
-        metric_correction = 0.5 * log_det_mass if self.include_volume_grad else torch.zeros_like(potential)
+        _, M_inv, log_det_M = self._get_mass_matrix(z)
+        kinetic = 0.5 * torch.einsum("bi,bij,bj->b", rho, M_inv, rho)
+        metric_correction = 0.5 * log_det_M if self.include_volume_grad else torch.zeros_like(potential)
         return potential + kinetic + metric_correction
 
 class ManifoldAttractionHMCSampler(BaseRiemannianSampler):

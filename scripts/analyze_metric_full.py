@@ -1008,13 +1008,39 @@ def generation_prior_experiment(
     centroids: torch.Tensor,
     out_dir: Path,
     num_samples: int = 600,
+    mcmc_steps: int = 50,
+    n_lf: int = 10,
+    eps_lf: float = 0.03,
+    beta_zero: float = 1.0,
     rhmc_sampler: str = "riemannian",
+    use_dual_metric: bool = False,
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.07,
+    adaptive_min_step_scale: float = 0.05,
+    volume_power: float = 2.0,
+    radial_prior_weight: float = 0.1,
+    momentum_persist: float = 0.0,
+    fp_steps: int = 15,
+    fp_damping: float = 0.72,
     wandb_run: Optional[Any] = None,
 ) -> dict[str, float]:
     samples, acc = rhmc_prior_samples(
         model,
         sampler_name=rhmc_sampler,
         num_samples=num_samples,
+        mcmc_steps=mcmc_steps,
+        n_lf=n_lf,
+        eps_lf=eps_lf,
+        beta_zero=beta_zero,
+        use_dual_metric=use_dual_metric,
+        adaptive_dual_step=adaptive_dual_step,
+        adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+        adaptive_min_step_scale=adaptive_min_step_scale,
+        volume_power=volume_power,
+        radial_prior_weight=radial_prior_weight,
+        momentum_persist=momentum_persist,
+        fp_steps=fp_steps,
+        fp_damping=fp_damping,
     )
     device = centroids.device if centroids is not None else next(model.parameters()).device
     sample_tensor = samples.to(device)
@@ -1056,6 +1082,15 @@ def _build_rhmc_sampler(
     n_lf: int,
     eps_lf: float,
     beta_zero: float,
+    use_dual_metric: bool = False,
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.07,
+    adaptive_min_step_scale: float = 0.05,
+    volume_power: float = 2.0,
+    radial_prior_weight: float = 0.1,
+    momentum_persist: float = 0.0,
+    fp_steps: int = 15,
+    fp_damping: float = 0.72,
 ):
     if sampler_name == "geodesic":
         return GeodesicHMCSampler(
@@ -1075,13 +1110,24 @@ def _build_rhmc_sampler(
             beta_zero=beta_zero,
         )
     if sampler_name == "volume_riemannian":
-        return VolumeElementRiemannianHMCSampler(
+        sampler = VolumeElementRiemannianHMCSampler(
             model,
             mcmc_steps_nbr=mcmc_steps,
             n_lf=n_lf,
             eps_lf=eps_lf,
             beta_zero=beta_zero,
+            use_dual_metric=use_dual_metric,
+            adaptive_dual_step=adaptive_dual_step,
+            adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+            adaptive_min_step_scale=adaptive_min_step_scale,
+            volume_power=volume_power,
+            radial_prior_weight=radial_prior_weight,
+            fp_steps=fp_steps,
+            fp_damping=fp_damping,
         )
+        # Not a constructor arg for this sampler class; keep compatibility by setting the attribute.
+        sampler.momentum_persist = float(momentum_persist)
+        return sampler
     if sampler_name == "volume_det":
         return RHVAELogDetHMCSampler(
             model,
@@ -1125,9 +1171,27 @@ def rhmc_prior_samples(
     n_lf: int = 40,
     eps_lf: float = 0.008,
     beta_zero: float = 0.6,
+    use_dual_metric: bool = False,
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.07,
+    adaptive_min_step_scale: float = 0.05,
+    volume_power: float = 2.0,
+    radial_prior_weight: float = 0.1,
+    momentum_persist: float = 0.0,
+    fp_steps: int = 15,
+    fp_damping: float = 0.72,
 ) -> tuple[torch.Tensor, float]:
     sampler = _build_rhmc_sampler(
-        model, sampler_name, mcmc_steps, n_lf, eps_lf, beta_zero
+        model, sampler_name, mcmc_steps, n_lf, eps_lf, beta_zero,
+        use_dual_metric=use_dual_metric,
+        adaptive_dual_step=adaptive_dual_step,
+        adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+        adaptive_min_step_scale=adaptive_min_step_scale,
+        volume_power=volume_power,
+        radial_prior_weight=radial_prior_weight,
+        momentum_persist=momentum_persist,
+        fp_steps=fp_steps,
+        fp_damping=fp_damping,
     )
     samples = sampler.sample(num_samples)
     return samples.detach().cpu(), float(getattr(sampler, "last_acceptance_rate", 0.0))
@@ -1140,9 +1204,27 @@ def rhmc_chain(
     n_lf: int = 40,
     eps_lf: float = 0.008,
     beta_zero: float = 0.6,
+    use_dual_metric: bool = False,
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.07,
+    adaptive_min_step_scale: float = 0.05,
+    volume_power: float = 2.0,
+    radial_prior_weight: float = 0.1,
+    momentum_persist: float = 0.0,
+    fp_steps: int = 15,
+    fp_damping: float = 0.72,
 ) -> tuple[np.ndarray, float, np.ndarray]:
     sampler = _build_rhmc_sampler(
-        model, sampler_name, steps, n_lf, eps_lf, beta_zero
+        model, sampler_name, steps, n_lf, eps_lf, beta_zero,
+        use_dual_metric=use_dual_metric,
+        adaptive_dual_step=adaptive_dual_step,
+        adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+        adaptive_min_step_scale=adaptive_min_step_scale,
+        volume_power=volume_power,
+        radial_prior_weight=radial_prior_weight,
+        momentum_persist=momentum_persist,
+        fp_steps=fp_steps,
+        fp_damping=fp_damping,
     )
     device = next(model.parameters()).device
     centroids = model.centroids_tens.to(device)
@@ -1210,6 +1292,15 @@ def simulate_rhmc_chain(
     eps_lf: float = 0.01,
     beta_zero: float = 1.0,
     rhmc_sampler: str = "riemannian",
+    use_dual_metric: bool = False,
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.07,
+    adaptive_min_step_scale: float = 0.05,
+    volume_power: float = 2.0,
+    radial_prior_weight: float = 0.1,
+    momentum_persist: float = 0.0,
+    fp_steps: int = 15,
+    fp_damping: float = 0.72,
     wandb_run: Optional[Any] = None,
 ) -> dict[str, float]:
     path_np, accept_rate, logdet_values = rhmc_chain(
@@ -1219,6 +1310,15 @@ def simulate_rhmc_chain(
         n_lf=n_lf,
         eps_lf=eps_lf,
         beta_zero=beta_zero,
+        use_dual_metric=use_dual_metric,
+        adaptive_dual_step=adaptive_dual_step,
+        adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+        adaptive_min_step_scale=adaptive_min_step_scale,
+        volume_power=volume_power,
+        radial_prior_weight=radial_prior_weight,
+        momentum_persist=momentum_persist,
+        fp_steps=fp_steps,
+        fp_damping=fp_damping,
     )
 
     fig, ax = plt.subplots(figsize=(8, 8))
@@ -1264,6 +1364,19 @@ def run_analysis(
     grid_bounds: float = 4.0,
     force_attractor_metric: Optional[str] = None,
     rhmc_sampler: str = "riemannian",
+    use_dual_metric: bool = False,
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.07,
+    adaptive_min_step_scale: float = 0.05,
+    rhmc_mcmc_steps: int = 50,
+    rhmc_n_lf: int = 10,
+    rhmc_eps_lf: float = 0.03,
+    rhmc_beta_zero: float = 1.0,
+    rhmc_volume_power: float = 2.0,
+    rhmc_radial_prior_weight: float = 0.1,
+    rhmc_momentum_persist: float = 0.0,
+    rhmc_fp_steps: int = 15,
+    rhmc_fp_damping: float = 0.72,
 ) -> dict[str, float]:
     model_path = Path(model_path)
     output_dir = Path(output_dir)
@@ -1312,10 +1425,36 @@ def run_analysis(
     if not skip_distortion:
         distortion_stats = distortion_heatmap(model, centroids, out_dir, wandb_run=wandb_run)
     prior_stats = generation_prior_experiment(
-        model, centroids, out_dir, rhmc_sampler=rhmc_sampler, wandb_run=wandb_run
+        model, centroids, out_dir, rhmc_sampler=rhmc_sampler, wandb_run=wandb_run,
+        mcmc_steps=rhmc_mcmc_steps,
+        n_lf=rhmc_n_lf,
+        eps_lf=rhmc_eps_lf,
+        beta_zero=rhmc_beta_zero,
+        use_dual_metric=use_dual_metric,
+        adaptive_dual_step=adaptive_dual_step,
+        adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+        adaptive_min_step_scale=adaptive_min_step_scale,
+        volume_power=rhmc_volume_power,
+        radial_prior_weight=rhmc_radial_prior_weight,
+        momentum_persist=rhmc_momentum_persist,
+        fp_steps=rhmc_fp_steps,
+        fp_damping=rhmc_fp_damping,
     )
     rhmc_stats = simulate_rhmc_chain(
-        model, centroids, out_dir, rhmc_sampler=rhmc_sampler, wandb_run=wandb_run
+        model, centroids, out_dir, rhmc_sampler=rhmc_sampler, wandb_run=wandb_run,
+        steps=rhmc_mcmc_steps,
+        n_lf=rhmc_n_lf,
+        eps_lf=rhmc_eps_lf,
+        beta_zero=rhmc_beta_zero,
+        use_dual_metric=use_dual_metric,
+        adaptive_dual_step=adaptive_dual_step,
+        adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+        adaptive_min_step_scale=adaptive_min_step_scale,
+        volume_power=rhmc_volume_power,
+        radial_prior_weight=rhmc_radial_prior_weight,
+        momentum_persist=rhmc_momentum_persist,
+        fp_steps=rhmc_fp_steps,
+        fp_damping=rhmc_fp_damping,
     )
 
     plot_geodesic_image_sequences(

@@ -171,6 +171,69 @@ def _run_chain(
     return np.stack(path, axis=0), np.asarray(trace_logdet_g, dtype=np.float32), acc
 
 
+def _median_nn_distance(z: torch.Tensor) -> float:
+    if z.shape[0] <= 1:
+        return 1.0
+    with torch.no_grad():
+        d = torch.cdist(z, z)
+        eye = torch.eye(z.shape[0], device=z.device, dtype=torch.bool)
+        d = d.masked_fill(eye, float("inf"))
+        nn = d.amin(dim=1)
+    med = float(torch.median(nn).item())
+    if not np.isfinite(med) or med <= 0:
+        return 1.0
+    return med
+
+
+def _sample_starts(
+    z_train: torch.Tensor,
+    manifold_starts: int,
+    near_starts: int,
+    far_starts: int,
+    near_sigma_factor: float,
+    far_scale: float,
+    latent_dim: int,
+    device: torch.device,
+) -> list[tuple[str, torch.Tensor]]:
+    starts: list[tuple[str, torch.Tensor]] = []
+    n = int(z_train.shape[0])
+    if n <= 0:
+        total = max(1, int(manifold_starts) + int(near_starts) + int(far_starts))
+        for i in range(total):
+            starts.append((f"fallback_{i+1}", torch.randn((1, int(latent_dim)), device=device)))
+        return starts
+
+    mean = z_train.mean(dim=0, keepdim=True)
+    nn_med = _median_nn_distance(z_train)
+    sigma = float(near_sigma_factor) * float(nn_med)
+    radii = torch.linalg.norm(z_train - mean, dim=1)
+    r_ref = float(torch.quantile(radii, 0.9).item()) if radii.numel() else 1.0
+    if not np.isfinite(r_ref) or r_ref <= 0:
+        r_ref = max(1.0, nn_med)
+
+    if int(manifold_starts) > 0:
+        idx = np.random.choice(n, size=min(int(manifold_starts), n), replace=False)
+        for i, j in enumerate(idx.tolist()):
+            starts.append((f"manifold_{i+1}", z_train[j : j + 1].to(device)))
+
+    if int(near_starts) > 0:
+        idx = np.random.choice(n, size=min(int(near_starts), n), replace=False)
+        for i, j in enumerate(idx.tolist()):
+            z0 = z_train[j : j + 1].to(device) + sigma * torch.randn((1, int(latent_dim)), device=device)
+            starts.append((f"near_{i+1}", z0))
+
+    if int(far_starts) > 0:
+        dirs = torch.randn((int(far_starts), int(latent_dim)), device=device)
+        dirs = dirs / (dirs.norm(dim=1, keepdim=True) + 1e-8)
+        z_far = mean.to(device) + float(far_scale) * float(r_ref) * dirs
+        for i in range(int(far_starts)):
+            starts.append((f"far_{i+1}", z_far[i : i + 1]))
+
+    if not starts:
+        starts.append(("manifold_1", z_train[0:1].to(device)))
+    return starts
+
+
 def _plot_model_overlay(
     out_path: Path,
     model_id: str,
@@ -178,6 +241,7 @@ def _plot_model_overlay(
     logdet_grid: np.ndarray,
     z2_train: np.ndarray,
     chain_paths: list[np.ndarray],
+    chain_labels: list[str],
     accept_rates: list[float],
 ) -> None:
     fig, ax = plt.subplots(figsize=(8, 6.5))
@@ -190,11 +254,15 @@ def _plot_model_overlay(
     )
     if z2_train.size > 0:
         ax.scatter(z2_train[:, 0], z2_train[:, 1], s=8, c="deepskyblue", alpha=0.3, edgecolors="none")
+    zone_colors = {"manifold": "#4c78a8", "near": "#f58518", "far": "#e45756", "fallback": "#54a24b"}
     for idx, path in enumerate(chain_paths):
-        ax.plot(path[:, 0], path[:, 1], lw=1.3, alpha=0.9, label=f"chain {idx+1}")
+        label = chain_labels[idx] if idx < len(chain_labels) else f"chain_{idx+1}"
+        zone = label.split("_")[0]
+        color = zone_colors.get(zone, "#999999")
+        ax.plot(path[:, 0], path[:, 1], lw=1.3, alpha=0.9, color=color, label=label)
 
     mean_acc = float(np.mean(accept_rates)) if accept_rates else float("nan")
-    ax.set_title(f"{model_id}: log det(G) + RHMC chains (acc={mean_acc:.3f})")
+    ax.set_title(f"{model_id}: log det(G) + chains on/near/far (acc={mean_acc:.3f})")
     ax.set_xlabel("z1")
     ax.set_ylabel("z2")
     ax.set_xlim(-bound, bound)
@@ -274,7 +342,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--grid_res", type=int, default=140)
     p.add_argument("--grid_quantile", type=float, default=0.99)
     p.add_argument("--grid_padding", type=float, default=1.35)
-    p.add_argument("--chain_count", type=int, default=6)
+    p.add_argument("--manifold_starts", type=int, default=3)
+    p.add_argument("--near_starts", type=int, default=3)
+    p.add_argument("--far_starts", type=int, default=3)
+    p.add_argument("--near_sigma_factor", type=float, default=1.2)
+    p.add_argument("--far_scale", type=float, default=2.4)
     p.add_argument("--chain_steps", type=int, default=80)
     p.add_argument("--chain_n_lf", type=int, default=20)
     p.add_argument("--chain_eps_lf", type=float, default=0.02)
@@ -314,7 +386,11 @@ def main() -> None:
         "subset_seed": int(args.subset_seed),
         "device": str(device),
         "chain_config": {
-            "chain_count": int(args.chain_count),
+            "manifold_starts": int(args.manifold_starts),
+            "near_starts": int(args.near_starts),
+            "far_starts": int(args.far_starts),
+            "near_sigma_factor": float(args.near_sigma_factor),
+            "far_scale": float(args.far_scale),
             "chain_steps": int(args.chain_steps),
             "chain_n_lf": int(args.chain_n_lf),
             "chain_eps_lf": float(args.chain_eps_lf),
@@ -345,19 +421,25 @@ def main() -> None:
         axis, _, grid_latents = _build_grid(adapter.latent_dim, bound, int(args.grid_res))
         logdet_grid = _eval_logdet_grid(adapter, grid_latents, int(args.grid_res), device=device)
 
-        if z_train.shape[0] > 0:
-            idx = np.random.choice(z_train.shape[0], size=min(int(args.chain_count), z_train.shape[0]), replace=False)
-            starts = z_train[idx].to(device)
-        else:
-            starts = torch.randn((int(args.chain_count), adapter.latent_dim), device=device)
+        starts_labeled = _sample_starts(
+            z_train=z_train.to(device),
+            manifold_starts=int(args.manifold_starts),
+            near_starts=int(args.near_starts),
+            far_starts=int(args.far_starts),
+            near_sigma_factor=float(args.near_sigma_factor),
+            far_scale=float(args.far_scale),
+            latent_dim=int(adapter.latent_dim),
+            device=device,
+        )
 
         chain_paths: list[np.ndarray] = []
         chain_traces: list[np.ndarray] = []
+        chain_labels: list[str] = []
         accept_rates: list[float] = []
-        for c in range(starts.shape[0]):
+        for label, z_start in starts_labeled:
             path, trace, acc = _run_chain(
                 adapter=adapter,
-                z_init=starts[c : c + 1],
+                z_init=z_start,
                 steps=int(args.chain_steps),
                 n_lf=int(args.chain_n_lf),
                 eps_lf=float(args.chain_eps_lf),
@@ -365,6 +447,7 @@ def main() -> None:
             )
             chain_paths.append(path)
             chain_traces.append(trace)
+            chain_labels.append(str(label))
             accept_rates.append(acc)
 
         model_dir_out = run_dir / model_id
@@ -375,6 +458,7 @@ def main() -> None:
             logdet_grid=logdet_grid,
             z2_train=z2,
             chain_paths=chain_paths,
+            chain_labels=chain_labels,
             accept_rates=accept_rates,
         )
         _plot_trace(
@@ -389,6 +473,7 @@ def main() -> None:
             "z2_train": z2,
             "logdet_grid": logdet_grid,
             "paths": chain_paths,
+            "labels": chain_labels,
             "traces": chain_traces,
             "accept_rates": accept_rates,
         }

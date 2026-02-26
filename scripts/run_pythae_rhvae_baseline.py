@@ -140,11 +140,25 @@ def _subsample_centroids(model, max_centroids, seed):
     idx = idx.to(centroids.device)
     model.centroids_tens = centroids.index_select(0, idx)
     model.M_tens = M_tens.index_select(0, idx)
+    # Also subsample attractor precisions if they exist and match the old count
+    P_tens = getattr(model, 'P_tens', None)
+    if isinstance(P_tens, torch.Tensor) and P_tens.shape[0] == n_total:
+        model.P_tens = P_tens.index_select(0, idx)
+    elif isinstance(P_tens, torch.Tensor) and P_tens.shape[0] != max_centroids:
+        # Recompute P_tens from the subsampled M_tens
+        if hasattr(model, '_update_attractor_precisions'):
+            model._update_attractor_precisions(model.M_tens)
     print(f"[RHVAE BASELINE] Subsampled centroids: {n_total} → {max_centroids}")
 
 
 def _suggest_temperature(centroids, sample_cap=2000, stat="median_nn"):
-    """Centroid-distance heuristic for RHVAE temperature."""
+    """Centroid-distance heuristic for RHVAE temperature.
+    
+    The temperature T controls the Gaussian kernel width via exp(-d²/T²).
+    We compute a candidate from centroid distances, then enforce a floor
+    based on the latent spread to prevent sub-diffraction kernel widths
+    that cause extreme metric gradients and NaN in the RHMC sampler.
+    """
     if not isinstance(centroids, torch.Tensor) or centroids.shape[0] < 2:
         return None
     c = centroids.detach().cpu()
@@ -152,19 +166,61 @@ def _suggest_temperature(centroids, sample_cap=2000, stat="median_nn"):
         g = torch.Generator().manual_seed(0)
         idx = torch.randperm(c.shape[0], generator=g)[:sample_cap]
         c = c.index_select(0, idx)
+
+    # Compute a principled temperature floor: Silverman-like lower bound.
+    # For N centroids in D dimensions, the minimum sensible bandwidth is
+    # sigma * (4/(D+2))^(1/(D+4)) * N^(-1/(D+4)).
+    # This prevents the kernel from becoming a delta function.
+    N_pts = float(c.shape[0])
+    D_dim = float(c.shape[1])
+    latent_std = float(c.std(dim=0).mean().item())
+    silverman_floor = latent_std * ((4.0 / (D_dim + 2.0)) ** (1.0 / (D_dim + 4.0))) * (N_pts ** (-1.0 / (D_dim + 4.0)))
+
+    if stat == "silverman":
+        return silverman_floor
+
     dists = torch.cdist(c, c)
+    if stat == "median_pairwise":
+        triu_idx = torch.triu_indices(dists.shape[0], dists.shape[1], offset=1)
+        pairwise_dists = dists[triu_idx[0], triu_idx[1]]
+        if pairwise_dists.numel() == 0:
+            return None
+        candidate = float(pairwise_dists.median().item())
+        return max(candidate, silverman_floor)
+
     dists.fill_diagonal_(float("inf"))
     if stat == "mean_pairwise":
         finite = dists[torch.isfinite(dists)]
         if finite.numel() == 0:
             return None
-        return float(finite.mean().item())
+        candidate = float(finite.mean().item())
+        return max(candidate, silverman_floor)
+        
+    if stat.startswith("mean_knn_"):
+        k = int(stat.split("_")[-1])
+        # Ensure k is within bounds (if there are fewer than k points, use max possible k)
+        max_k = dists.shape[1] - 1
+        safe_k = min(k, max_k)
+        if safe_k <= 0:
+            return None
+        # sort distances: the 0th element is the 1st neighbor (since diagonal is inf)
+        knn_dists = dists.sort(dim=1).values[:, safe_k - 1]
+        candidate = float(knn_dists.mean().item())
+        if candidate < silverman_floor:
+            print(
+                f"[RHVAE BASELINE] T floor activated: knn_candidate={candidate:.4f} "
+                f"< silverman_floor={silverman_floor:.4f}, using floor"
+            )
+        return max(candidate, silverman_floor)
+
     nn = dists.min(dim=1).values
     if nn.numel() == 0:
         return None
     if stat == "mean_nn":
-        return float(nn.mean().item())
-    return float(nn.median().item())
+        candidate = float(nn.mean().item())
+    else:
+        candidate = float(nn.median().item())
+    return max(candidate, silverman_floor)
 
 
 def visualize_reconstructions(model, data, epoch, output_dir, wandb, device, n_samples=8):
@@ -485,6 +541,7 @@ def train_rhvae_with_logging(
     wandb,
     vis_every=10,
     max_centroids=None,
+    target_n_centroids=None,
     centroid_seed=42,
     auto_temperature=False,
     auto_temperature_stat="median_nn",
@@ -494,13 +551,23 @@ def train_rhvae_with_logging(
     """Training loop with full logging and visualization."""
     model = model.to(device)
     model.train()
-    
+
     train_dataset = TensorDataset(train_data)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-    
+    n_train = int(len(train_dataset))
+    if n_train <= 0:
+        raise RuntimeError("Empty training dataset after frame extraction; cannot train RHVAE.")
+    effective_batch_size = int(min(max(1, int(batch_size)), n_train))
+    if effective_batch_size != int(batch_size):
+        print(
+            "[RHVAE BASELINE] Adjusting batch_size for low-data regime: "
+            f"requested={int(batch_size)} -> effective={effective_batch_size} (train_samples={n_train})"
+        )
+    # Keep the last (possibly small) batch so low-data regimes still produce updates.
+    train_loader = DataLoader(train_dataset, batch_size=effective_batch_size, shuffle=True, drop_last=False)
+
     val_dataset = TensorDataset(val_data) if val_data is not None else None
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False) if val_dataset else None
-    
+    val_loader = DataLoader(val_dataset, batch_size=effective_batch_size, shuffle=False) if val_dataset else None
+
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10, factor=0.5)
     
@@ -596,7 +663,15 @@ def train_rhvae_with_logging(
         if hasattr(model, 'update'):
             with torch.no_grad():
                 model.update()
-        _subsample_centroids(model, max_centroids, centroid_seed)
+        # If max_centroids is not set but auto_temperature is active,
+        # cap with the requested n_centroids budget (fallback: model config).
+        effective_max_centroids = max_centroids
+        if effective_max_centroids is None and auto_temperature:
+            if target_n_centroids is not None and int(target_n_centroids) > 0:
+                effective_max_centroids = int(target_n_centroids)
+            else:
+                effective_max_centroids = getattr(model.model_config, 'n_centroids', None)
+        _subsample_centroids(model, effective_max_centroids, centroid_seed)
         if auto_temperature:
             if int(auto_temperature_every) <= 0:
                 should_update_temp = not getattr(model, "_auto_temperature_set", False)
@@ -822,6 +897,29 @@ def main():
             "atom_norm": "trace",
             "rhvae_variant": "geometry",
         },
+        "aniso": {
+            "kernel_type": "mahalanobis",
+            "atom_norm": "trace",
+            "atom_power": 1.0959864113997024,
+            "kernel_power": 1.0,
+            "precision_jitter": 0.01,
+            "void_threshold": 1.2,
+            "void_weight_threshold": -1.0,
+            "void_decay_type": "invquad",
+            "void_decay_scale": 8.87131893173153,
+            "void_decay_power": 1.7447710342008058,
+            "void_decay_softplus_k": 5.0,
+            "radial_stretch": 9.252860449508804,
+            "transition_steepness": 7.276725930229776,
+            "use_attractor": True,
+            "attractor_smoothness": "soft",
+            "attractor_metric": "mahalanobis",
+            "attractor_use_det": True,
+            "attractor_gamma": 7.624554217806352,
+            "attractor_k_nearest": 1,
+            "attractor_bias_energy": 18.0,
+            "rhvae_variant": "geometry",
+        },
     }
     parser = argparse.ArgumentParser()
     parser.add_argument('--latent_dim', type=int, default=2)
@@ -841,7 +939,7 @@ def main():
         '--auto_temperature_stat',
         type=str,
         default='median_nn',
-        choices=['median_nn', 'mean_nn', 'mean_pairwise'],
+        choices=['median_nn', 'mean_nn', 'mean_pairwise', 'median_pairwise', 'silverman', 'mean_knn_5'],
     )
     parser.add_argument(
         '--auto_temperature_every',
@@ -921,6 +1019,23 @@ def main():
     )
     parser.add_argument('--rhmc_fp_steps', type=int, default=6)
     parser.add_argument('--rhmc_fp_damping', type=float, default=0.5)
+    parser.add_argument('--atom_scale', type=float, default=1.0)
+    parser.add_argument(
+        '--use_dual_metric',
+        nargs='?',
+        const='True',
+        default='False',
+        type=lambda x: (str(x).lower() == 'true') if str(x).lower() in ['true', 'false'] else x,
+    )
+    parser.add_argument('--rhmc_adaptive_dual_step', action='store_true', default=False)
+    parser.add_argument('--rhmc_adaptive_max_dual_displacement', type=float, default=0.5)
+    parser.add_argument('--rhmc_adaptive_min_step_scale', type=float, default=0.05)
+    parser.add_argument('--rhmc_volume_power', type=float, default=2.0)
+    parser.add_argument('--rhmc_radial_prior_weight', type=float, default=0.1)
+    parser.add_argument('--rhmc_momentum_persist', type=float, default=0.0)
+    parser.add_argument('--sampling_mcmc_steps', type=int, default=50)
+    parser.add_argument('--sampling_n_lf', type=int, default=10)
+    parser.add_argument('--sampling_eps_lf', type=float, default=0.03)
     parser.add_argument('--wandb_project', type=str, default='RHVAE-baseline')
     parser.add_argument('--wandb_entity', type=str, default=None)
     parser.add_argument('--wandb_group', type=str, default=None)
@@ -930,12 +1045,13 @@ def main():
     parser.add_argument('--analysis_skip_distortion', action='store_true', help='Skip distortion analysis plots.')
     parser.add_argument('--analysis_far_pairs', type=int, default=0, help='Number of far centroid pairs for analysis geodesics.')
     parser.add_argument('--analysis_random_pairs', type=int, default=8, help='Number of random centroid pairs for analysis geodesics.')
+    parser.add_argument('--skip_analysis', action='store_true', help='Skip metric analysis after training.')
     parser.add_argument(
         '--analysis_rhmc_sampler',
         type=str,
         default=None,
-        choices=['riemannian', 'geodesic', 'volume'],
-        help='RHMC sampler for analysis (riemannian, geodesic-uniform, or volume-element).',
+        choices=['riemannian', 'geodesic', 'volume', 'volume_riemannian'],
+        help='RHMC sampler for analysis (riemannian, geodesic-uniform, volume-element, or volume_riemannian).',
     )
     # Sampling diagnostics arguments
     parser.add_argument('--skip_sampling_diagnostics', action='store_true', help='Skip sampling diagnostics after training.')
@@ -1057,6 +1173,18 @@ def main():
                 "attractor_use_det": args.attractor_use_det,
                 "attractor_bias_energy": args.attractor_bias_energy,
                 "geometry_case": args.geometry_case,
+                "skip_analysis": args.skip_analysis,
+                "analysis_rhmc_sampler": args.analysis_rhmc_sampler,
+                "use_dual_metric": args.use_dual_metric,
+                "rhmc_adaptive_dual_step": args.rhmc_adaptive_dual_step,
+                "rhmc_adaptive_max_dual_displacement": args.rhmc_adaptive_max_dual_displacement,
+                "rhmc_adaptive_min_step_scale": args.rhmc_adaptive_min_step_scale,
+                "rhmc_volume_power": args.rhmc_volume_power,
+                "rhmc_radial_prior_weight": args.rhmc_radial_prior_weight,
+                "rhmc_momentum_persist": args.rhmc_momentum_persist,
+                "sampling_mcmc_steps": args.sampling_mcmc_steps,
+                "sampling_n_lf": args.sampling_n_lf,
+                "sampling_eps_lf": args.sampling_eps_lf,
             }
         )
         print("[RHVAE BASELINE] WandB initialized")
@@ -1163,6 +1291,10 @@ def main():
             rhmc_integrator=args.rhmc_integrator,
             rhmc_fp_steps=args.rhmc_fp_steps,
             rhmc_fp_damping=args.rhmc_fp_damping,
+            rhmc_adaptive_dual_step=args.rhmc_adaptive_dual_step,
+            rhmc_adaptive_max_dual_displacement=args.rhmc_adaptive_max_dual_displacement,
+            rhmc_adaptive_min_step_scale=args.rhmc_adaptive_min_step_scale,
+            atom_scale=args.atom_scale,
         )
     rhvae_config = config_cls(**config_kwargs)
 
@@ -1184,6 +1316,7 @@ def main():
         model, train_flat, val_flat, args.epochs, args.batch_size, args.lr, 
         device, output_dir, wandb, vis_every=args.vis_every,
         max_centroids=args.max_centroids,
+        target_n_centroids=args.n_centroids,
         centroid_seed=args.seed,
         auto_temperature=args.auto_temperature,
         auto_temperature_stat=args.auto_temperature_stat,
@@ -1236,20 +1369,36 @@ def main():
         
         if wandb is not None and wandb.run is not None:
             wandb.save(str(metric_path))
-        analysis_dir = output_dir / "analysis_results"
-        support_images = train_data[: min(512, train_data.shape[0])].clone()
-        run_analysis(
-            output_dir,
-            analysis_dir,
-            torch.device(device),
-            wandb_run=wandb.run if wandb is not None and wandb.run is not None else None,
-            skip_distortion=args.analysis_skip_distortion,
-            far_pairs=args.analysis_far_pairs,
-            random_pairs=args.analysis_random_pairs,
-            rhmc_sampler=args.analysis_rhmc_sampler,
-            support_images=support_images,
-            support_max_samples=512,
-        )
+        if args.skip_analysis:
+            print("[RHVAE BASELINE] Skipping metric analysis (--skip_analysis).")
+        else:
+            analysis_dir = output_dir / "analysis_results"
+            support_images = train_data[: min(512, train_data.shape[0])].clone()
+            run_analysis(
+                output_dir,
+                analysis_dir,
+                torch.device(device),
+                wandb_run=wandb.run if wandb is not None and wandb.run is not None else None,
+                skip_distortion=args.analysis_skip_distortion,
+                far_pairs=args.analysis_far_pairs,
+                random_pairs=args.analysis_random_pairs,
+                rhmc_sampler=args.analysis_rhmc_sampler,
+                support_images=support_images,
+                support_max_samples=512,
+                use_dual_metric=args.use_dual_metric,
+                adaptive_dual_step=args.rhmc_adaptive_dual_step,
+                adaptive_max_dual_displacement=args.rhmc_adaptive_max_dual_displacement,
+                adaptive_min_step_scale=args.rhmc_adaptive_min_step_scale,
+                rhmc_mcmc_steps=args.sampling_mcmc_steps,
+                rhmc_n_lf=args.sampling_n_lf,
+                rhmc_eps_lf=args.sampling_eps_lf,
+                rhmc_beta_zero=1.0,
+                rhmc_volume_power=args.rhmc_volume_power,
+                rhmc_radial_prior_weight=args.rhmc_radial_prior_weight,
+                rhmc_momentum_persist=args.rhmc_momentum_persist,
+                rhmc_fp_steps=args.rhmc_fp_steps,
+                rhmc_fp_damping=args.rhmc_fp_damping,
+            )
         
     # Save model (before diagnostics so standalone runs can also load it)
     model_save_path = output_dir / 'rhvae_model.pt'
@@ -1271,16 +1420,28 @@ def main():
             fid_samplers=args.sampling_fid_samplers,
             run_multi_start=True,
             n_starts=args.sampling_n_starts,
+            multi_start_sampler=args.analysis_rhmc_sampler,
             run_interpolation=True,
             n_interp_pairs=args.sampling_n_interp_pairs,
             run_quality=True,
             quality_samples=args.sampling_quality_samples,
+            quality_samplers=args.sampling_fid_samplers,
             do_rhmc_diagnostics=True,
             n_chains=args.sampling_n_chains,
             chain_length=args.sampling_chain_length,
-            mcmc_steps=50,
-            n_lf=10,
-            eps_lf=0.02,
+            rhmc_sampler=args.analysis_rhmc_sampler,
+            mcmc_steps=args.sampling_mcmc_steps,
+            n_lf=args.sampling_n_lf,
+            eps_lf=args.sampling_eps_lf,
+            use_dual_metric=args.use_dual_metric,
+            adaptive_dual_step=args.rhmc_adaptive_dual_step,
+            adaptive_max_dual_displacement=args.rhmc_adaptive_max_dual_displacement,
+            adaptive_min_step_scale=args.rhmc_adaptive_min_step_scale,
+            volume_power=args.rhmc_volume_power,
+            radial_prior_weight=args.rhmc_radial_prior_weight,
+            momentum_persist=args.rhmc_momentum_persist,
+            fp_steps=args.rhmc_fp_steps,
+            fp_damping=args.rhmc_fp_damping,
         )
         print("[RHVAE BASELINE] Sampling diagnostics complete.")
     

@@ -390,6 +390,7 @@ def _single_hmc_transition(
     rho_prev: torch.Tensor | None,
     eps_jitter_local: float = 0.0,
     n_lf_jitter_local: int = 0,
+    no_metropolis_local: bool = False,
 ) -> dict[str, Any]:
     z_curr = z_curr.detach().requires_grad_(True)
     if hasattr(active_sampler, "_refresh_momentum"):
@@ -438,14 +439,22 @@ def _single_hmc_transition(
     with torch.no_grad():
         H1 = _compute_hamiltonian(active_sampler, z_prop, rho_prop)
         dH = H1 - H0
-        alpha = torch.exp(-dH).clamp(max=1.0)
-        u = torch.rand_like(alpha)
-        moves = (u < alpha).float().view(-1, 1)
-        z_next = (moves * z_prop + (1.0 - moves) * z_curr).detach()
-        rho_mix = (moves * rho_prop + (1.0 - moves) * rho).detach()
+        if bool(no_metropolis_local):
+            moves = torch.ones_like(H0).view(-1, 1)
+            z_next = z_prop.detach()
+            rho_mix = rho_prop.detach()
+        else:
+            alpha = torch.exp(-dH).clamp(max=1.0)
+            u = torch.rand_like(alpha)
+            moves = (u < alpha).float().view(-1, 1)
+            z_next = (moves * z_prop + (1.0 - moves) * z_curr).detach()
+            rho_mix = (moves * rho_prop + (1.0 - moves) * rho).detach()
 
         if getattr(active_sampler, "momentum_persist", 0.0) > 0.0:
-            rho_prev_next = (moves * rho_prop + (1.0 - moves) * (-rho0)).detach()
+            if bool(no_metropolis_local):
+                rho_prev_next = rho_prop.detach()
+            else:
+                rho_prev_next = (moves * rho_prop + (1.0 - moves) * (-rho0)).detach()
         else:
             rho_prev_next = None
 
@@ -469,6 +478,7 @@ def run_hmc_chain(
     eps_lf: float,
     eps_jitter: float = 0.0,
     n_lf_jitter: int = 0,
+    no_metropolis: bool = False,
 ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     z = start_z.clone().detach().requires_grad_(True)
     chain = [z.detach().cpu().squeeze().numpy()]
@@ -504,6 +514,7 @@ def run_hmc_chain(
                 rho_prev=rho_prev_map[kernel_key],
                 eps_jitter_local=eps_jitter,
                 n_lf_jitter_local=n_lf_jitter,
+                no_metropolis_local=bool(no_metropolis),
             )
             rho_prev_map[kernel_key] = trans["rho_prev_next"]
         else:
@@ -516,6 +527,7 @@ def run_hmc_chain(
                 rho_prev=rho_prev_single,
                 eps_jitter_local=eps_jitter,
                 n_lf_jitter_local=n_lf_jitter,
+                no_metropolis_local=bool(no_metropolis),
             )
             rho_prev_single = trans["rho_prev_next"]
 

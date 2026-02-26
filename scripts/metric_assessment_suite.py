@@ -191,6 +191,10 @@ class SamplerConfig:
     fp_steps: int = 15
     fp_damping: float = 0.7
     radial_prior_weight: float = 0.0
+    use_dual_metric: bool = False
+    adaptive_dual_step: bool = False
+    adaptive_max_dual_displacement: float = 0.75
+    adaptive_min_step_scale: float = 0.05
     hybrid_explore_steps: int = 3
     hybrid_rescue_steps: int = 1
 
@@ -589,6 +593,7 @@ def sampler_from_config(
         volume_power=cfg.volume_power,
         radial_prior_weight=float(cfg.radial_prior_weight),
         radial_prior_center=None,
+        use_dual_metric=bool(cfg.use_dual_metric),
         hybrid_explore_steps=int(cfg.hybrid_explore_steps),
         hybrid_rescue_steps=int(cfg.hybrid_rescue_steps),
     )
@@ -598,6 +603,12 @@ def sampler_from_config(
         sampler.fp_steps = int(cfg.fp_steps)
     if hasattr(sampler, "fp_damping"):
         sampler.fp_damping = float(cfg.fp_damping)
+    if hasattr(sampler, "adaptive_dual_step"):
+        sampler.adaptive_dual_step = bool(cfg.adaptive_dual_step)
+    if hasattr(sampler, "adaptive_max_dual_displacement"):
+        sampler.adaptive_max_dual_displacement = float(cfg.adaptive_max_dual_displacement)
+    if hasattr(sampler, "adaptive_min_step_scale"):
+        sampler.adaptive_min_step_scale = float(cfg.adaptive_min_step_scale)
     return sampler
 
 
@@ -1357,6 +1368,10 @@ def select_matched_eps(
     fp_steps: int,
     fp_damping: float,
     radial_prior_weight: float,
+    use_dual_metric: bool,
+    adaptive_dual_step: bool,
+    adaptive_max_dual_displacement: float,
+    adaptive_min_step_scale: float,
     hybrid_explore_steps: int,
     hybrid_rescue_steps: int,
     eps_grid: list[float],
@@ -1380,6 +1395,10 @@ def select_matched_eps(
             fp_steps=fp_steps,
             fp_damping=fp_damping,
             radial_prior_weight=float(radial_prior_weight),
+            use_dual_metric=bool(use_dual_metric),
+            adaptive_dual_step=bool(adaptive_dual_step),
+            adaptive_max_dual_displacement=float(adaptive_max_dual_displacement),
+            adaptive_min_step_scale=float(adaptive_min_step_scale),
             hybrid_explore_steps=int(hybrid_explore_steps),
             hybrid_rescue_steps=int(hybrid_rescue_steps),
         )
@@ -1419,6 +1438,10 @@ def select_tuned_config(
     fp_steps: int,
     fp_damping: float,
     radial_prior_weight: float,
+    use_dual_metric: bool,
+    adaptive_dual_step: bool,
+    adaptive_max_dual_displacement: float,
+    adaptive_min_step_scale: float,
     hybrid_explore_steps: int,
     hybrid_rescue_steps: int,
     target_acceptance: float,
@@ -1435,6 +1458,10 @@ def select_tuned_config(
         fp_steps=int(fp_steps),
         fp_damping=float(fp_damping),
         radial_prior_weight=float(radial_prior_weight),
+        use_dual_metric=bool(use_dual_metric),
+        adaptive_dual_step=bool(adaptive_dual_step),
+        adaptive_max_dual_displacement=float(adaptive_max_dual_displacement),
+        adaptive_min_step_scale=float(adaptive_min_step_scale),
         hybrid_explore_steps=int(hybrid_explore_steps),
         hybrid_rescue_steps=int(hybrid_rescue_steps),
     )
@@ -1454,6 +1481,10 @@ def select_tuned_config(
                     fp_steps=fp_steps,
                     fp_damping=fp_damping,
                     radial_prior_weight=float(radial_prior_weight),
+                    use_dual_metric=bool(use_dual_metric),
+                    adaptive_dual_step=bool(adaptive_dual_step),
+                    adaptive_max_dual_displacement=float(adaptive_max_dual_displacement),
+                    adaptive_min_step_scale=float(adaptive_min_step_scale),
                     hybrid_explore_steps=int(hybrid_explore_steps),
                     hybrid_rescue_steps=int(hybrid_rescue_steps),
                 )
@@ -1983,6 +2014,36 @@ def parse_args() -> argparse.Namespace:
         help="Optional radial prior strength for volume_riemannian to improve manifold rescue.",
     )
     parser.add_argument(
+        "--strict_use_dual_metric",
+        action="store_true",
+        help="Enable dual-metric dynamics for volume_riemannian strict/matched/tuned protocols.",
+    )
+    parser.add_argument(
+        "--strict_adaptive_dual_step",
+        dest="strict_adaptive_dual_step",
+        action="store_true",
+        help="Enable dual-step local adaptation (caps displacement in dual regions).",
+    )
+    parser.add_argument(
+        "--strict_no_adaptive_dual_step",
+        dest="strict_adaptive_dual_step",
+        action="store_false",
+        help="Disable dual-step local adaptation.",
+    )
+    parser.set_defaults(strict_adaptive_dual_step=False)
+    parser.add_argument(
+        "--strict_adaptive_max_dual_displacement",
+        type=float,
+        default=0.75,
+        help="Maximum allowed local displacement (in latent units) before scaling eps down.",
+    )
+    parser.add_argument(
+        "--strict_adaptive_min_step_scale",
+        type=float,
+        default=0.05,
+        help="Lower bound for local eps scaling in adaptive dual mode.",
+    )
+    parser.add_argument(
         "--strict_hybrid_explore_steps",
         type=int,
         default=3,
@@ -2086,6 +2147,10 @@ def parse_args() -> argparse.Namespace:
         parser.error("--strict_n_lf_jitter must be >= 0.")
     if args.strict_radial_prior_weight < 0.0:
         parser.error("--strict_radial_prior_weight must be >= 0.")
+    if args.strict_adaptive_max_dual_displacement <= 0.0:
+        parser.error("--strict_adaptive_max_dual_displacement must be > 0.")
+    if not (0.0 < args.strict_adaptive_min_step_scale <= 1.0):
+        parser.error("--strict_adaptive_min_step_scale must satisfy 0 < value <= 1.")
     if args.strict_hybrid_explore_steps <= 0:
         parser.error("--strict_hybrid_explore_steps must be > 0.")
     if args.strict_hybrid_rescue_steps <= 0:
@@ -2207,6 +2272,10 @@ def main() -> None:
             fp_steps=strict_fp_steps,
             fp_damping=strict_fp_damping,
             radial_prior_weight=float(args.strict_radial_prior_weight),
+            use_dual_metric=bool(args.strict_use_dual_metric),
+            adaptive_dual_step=bool(args.strict_adaptive_dual_step),
+            adaptive_max_dual_displacement=float(args.strict_adaptive_max_dual_displacement),
+            adaptive_min_step_scale=float(args.strict_adaptive_min_step_scale),
             hybrid_explore_steps=int(args.strict_hybrid_explore_steps),
             hybrid_rescue_steps=int(args.strict_hybrid_rescue_steps),
         )
@@ -2235,6 +2304,10 @@ def main() -> None:
                         fp_steps=strict_cfg.fp_steps,
                         fp_damping=strict_cfg.fp_damping,
                         radial_prior_weight=float(strict_cfg.radial_prior_weight),
+                        use_dual_metric=bool(strict_cfg.use_dual_metric),
+                        adaptive_dual_step=bool(strict_cfg.adaptive_dual_step),
+                        adaptive_max_dual_displacement=float(strict_cfg.adaptive_max_dual_displacement),
+                        adaptive_min_step_scale=float(strict_cfg.adaptive_min_step_scale),
                         hybrid_explore_steps=int(strict_cfg.hybrid_explore_steps),
                         hybrid_rescue_steps=int(strict_cfg.hybrid_rescue_steps),
                     )
@@ -2264,6 +2337,10 @@ def main() -> None:
                         fp_steps=strict_cfg.fp_steps,
                         fp_damping=strict_cfg.fp_damping,
                         radial_prior_weight=float(strict_cfg.radial_prior_weight),
+                        use_dual_metric=bool(strict_cfg.use_dual_metric),
+                        adaptive_dual_step=bool(strict_cfg.adaptive_dual_step),
+                        adaptive_max_dual_displacement=float(strict_cfg.adaptive_max_dual_displacement),
+                        adaptive_min_step_scale=float(strict_cfg.adaptive_min_step_scale),
                         hybrid_explore_steps=int(strict_cfg.hybrid_explore_steps),
                         hybrid_rescue_steps=int(strict_cfg.hybrid_rescue_steps),
                         eps_grid=[float(v) for v in args.matched_eps_grid],
@@ -2289,6 +2366,10 @@ def main() -> None:
                         fp_steps=strict_cfg.fp_steps,
                         fp_damping=strict_cfg.fp_damping,
                         radial_prior_weight=float(strict_cfg.radial_prior_weight),
+                        use_dual_metric=bool(strict_cfg.use_dual_metric),
+                        adaptive_dual_step=bool(strict_cfg.adaptive_dual_step),
+                        adaptive_max_dual_displacement=float(strict_cfg.adaptive_max_dual_displacement),
+                        adaptive_min_step_scale=float(strict_cfg.adaptive_min_step_scale),
                         hybrid_explore_steps=int(strict_cfg.hybrid_explore_steps),
                         hybrid_rescue_steps=int(strict_cfg.hybrid_rescue_steps),
                     )
@@ -2324,6 +2405,10 @@ def main() -> None:
                     fp_steps=strict_cfg.fp_steps,
                     fp_damping=strict_cfg.fp_damping,
                     radial_prior_weight=float(strict_cfg.radial_prior_weight),
+                    use_dual_metric=bool(strict_cfg.use_dual_metric),
+                    adaptive_dual_step=bool(strict_cfg.adaptive_dual_step),
+                    adaptive_max_dual_displacement=float(strict_cfg.adaptive_max_dual_displacement),
+                    adaptive_min_step_scale=float(strict_cfg.adaptive_min_step_scale),
                     hybrid_explore_steps=int(strict_cfg.hybrid_explore_steps),
                     hybrid_rescue_steps=int(strict_cfg.hybrid_rescue_steps),
                     target_acceptance=float(args.target_acceptance),

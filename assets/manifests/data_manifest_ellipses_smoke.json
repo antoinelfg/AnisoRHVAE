@@ -1,0 +1,56 @@
+{
+  "created_at": "2026-02-19T17:23:43Z",
+  "datasets": [
+    {
+      "dataset_id": "ellipses_lowdata_v1",
+      "files": [
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/ellipses_lowdata_smoke/train.pt",
+          "relative_path": "data/processed/ellipses_lowdata_smoke/train.pt",
+          "sha256": "c24ead9974ddb5a7c40142a00b9a1b9f0a5253d9428e4f100199ceb958cec11a",
+          "size_bytes": 17049493
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/ellipses_lowdata_smoke/val.pt",
+          "relative_path": "data/processed/ellipses_lowdata_smoke/val.pt",
+          "sha256": "62070276ee942ea1c8c318f97914e3ece3f7b04946a8fe6b959a78b968f447a2",
+          "size_bytes": 2132805
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/ellipses_lowdata_smoke/test.pt",
+          "relative_path": "data/processed/ellipses_lowdata_smoke/test.pt",
+          "sha256": "324a117be08db2beb3dee23fe7ecbd3a5244870e92a3c299cce02db28824d980",
+          "size_bytes": 2132813
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/ellipses_lowdata_smoke/metadata.json",
+          "relative_path": "data/processed/ellipses_lowdata_smoke/metadata.json",
+          "sha256": "47e7636c0676d62349c6b25f91fe39776489de3f95da67d463de379aa81e64e4",
+          "size_bytes": 1907
+        }
+      ],
+      "processed_dir": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/ellipses_lowdata_smoke",
+      "split_definition": {
+        "frame_mode": "t0",
+        "num_sequences": 1300,
+        "test_size": 130,
+        "train_size": 1040,
+        "val_size": 130
+      },
+      "status": "ready",
+      "subset_definition": {
+        "sampling": "uniform_without_replacement",
+        "subset_count": 4,
+        "subset_ns": [
+          50,
+          100,
+          500,
+          1000
+        ],
+        "subset_seeds": [
+          13
+        ]
+      }
+    }
+  ]
+}

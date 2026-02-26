@@ -152,6 +152,42 @@ def _build_model(args: argparse.Namespace, input_dim_flat: int) -> tuple[Any, di
             attractor_gamma=5.0,
             attractor_bias_energy=15.0,
         )
+    elif args.aniso_profile == "core4_spatial":
+        # Match the selected core4 run (metric_core4_sweep/2026-02-17_11-07-08).
+        radial_stretch = 9.252860449508804 if args.radial_stretch is None else float(args.radial_stretch)
+        cfg = GeometryRHVAEConfig(
+            input_dim=(input_dim_flat,),
+            latent_dim=args.latent_dim,
+            n_lf=args.n_lf,
+            eps_lf=args.eps_lf,
+            beta_zero=0.3,
+            temperature=args.temperature,
+            regularization=args.regularization,
+            use_attractor=True,
+            kernel_type="mahalanobis",
+            atom_norm="trace",
+            atom_power=1.0959864113997024,
+            kernel_power=1.0,
+            precision_jitter=0.01,
+            void_threshold=1.2,
+            void_weight_threshold=-1.0,
+            transition_steepness=7.276725930229776,
+            radial_stretch=radial_stretch,
+            void_decay_type="invquad",
+            void_decay_scale=8.87131893173153,
+            void_decay_power=1.7447710342008058,
+            void_decay_softplus_k=5.0,
+            void_eigshape_mode="none",
+            void_eigshape_alpha_min=1.0,
+            void_eigshape_power=-1.0,
+            void_eigshape_eig_floor=1e-8,
+            attractor_metric="mahalanobis",
+            attractor_smoothness="soft",
+            attractor_use_det=True,
+            attractor_k_nearest=1,
+            attractor_gamma=7.624554217806352,
+            attractor_bias_energy=18.0,
+        )
     else:
         radial_stretch = 6.0 if args.radial_stretch is None else float(args.radial_stretch)
         cfg = GeometryRHVAEConfig(
@@ -492,7 +528,7 @@ def parse_args() -> argparse.Namespace:
         "--aniso_profile",
         type=str,
         default="legacy",
-        choices=["legacy", "gravity_well"],
+        choices=["legacy", "gravity_well", "core4_spatial"],
         help="Geometry preset for --mode aniso.",
     )
     parser.add_argument("--processed_dir", type=str, default="data/processed/rotmnist/v1")

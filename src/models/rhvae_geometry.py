@@ -86,11 +86,15 @@ class GeometryRHVAEConfig(RHVAEConfig):
     atom_power: float = 1.0
     kernel_power: float = 1.0
     atom_norm: str = "none"
+    atom_scale: float = 1.0
 
     # RHMC integrator control (training)
     rhmc_integrator: str = "explicit"  # explicit | implicit
     rhmc_fp_steps: int = 15
     rhmc_fp_damping: float = 0.7
+    rhmc_adaptive_dual_step: bool = False
+    rhmc_adaptive_max_dual_displacement: float = 0.05
+    rhmc_adaptive_min_step_scale: float = 0.1
 
     @classmethod
     def from_physics(
@@ -166,6 +170,15 @@ class GeometryRHVAE(RHVAE):
         self.void_eigshape_eig_floor = float(
             getattr(model_config, "void_eigshape_eig_floor", 1e-8)
         )
+        self.rhmc_adaptive_dual_step = bool(
+            getattr(model_config, "rhmc_adaptive_dual_step", False)
+        )
+        self.rhmc_adaptive_max_dual_displacement = float(
+            getattr(model_config, "rhmc_adaptive_max_dual_displacement", 0.05)
+        )
+        self.rhmc_adaptive_min_step_scale = float(
+            getattr(model_config, "rhmc_adaptive_min_step_scale", 0.1)
+        )
         self.target_anisotropy = (
             None
             if model_config.target_anisotropy is None
@@ -176,6 +189,7 @@ class GeometryRHVAE(RHVAE):
         self.atom_power = float(model_config.atom_power)
         self.kernel_power = float(model_config.kernel_power)
         self.atom_norm = str(model_config.atom_norm).lower()
+        self.atom_scale = float(model_config.atom_scale)
         self.attractor_smoothness = str(
             getattr(model_config, "attractor_smoothness", "soft")
         ).lower()
@@ -433,8 +447,12 @@ class GeometryRHVAE(RHVAE):
         return self._stabilize_metric(blended)
 
     def _compute_metric_at_z(self, z: torch.Tensor) -> torch.Tensor:
-        g_inv = self._compute_inverse_metric_at_z(z)
-        return torch.linalg.inv(g_inv)
+        try:
+            g_inv = self._compute_inverse_metric_at_z(z)
+            return torch.linalg.inv(g_inv)
+        except (torch.linalg.LinAlgError, ValueError):
+            # Return a non-finite tensor to trigger the sampler's fallback
+            return torch.full((z.shape[0], self.latent_dim, self.latent_dim), float('nan'), device=z.device, dtype=z.dtype)
 
     def _kernel_dists(self, diff: torch.Tensor, prec: torch.Tensor | None) -> torch.Tensor:
         if self.kernel_type == "isotropic":
@@ -480,6 +498,9 @@ class GeometryRHVAE(RHVAE):
             logdet = torch.log(evals_cov).sum(dim=-1, keepdim=True)
             scale = torch.exp(logdet / float(self.latent_dim)).clamp_min(1e-12)
             evals_cov = evals_cov / scale
+
+        # Apply global atom scale
+        evals_cov = evals_cov * float(self.atom_scale)
 
         cov_shaped = evecs @ torch.diag_embed(evals_cov) @ evecs.transpose(-1, -2)
         cov_shaped = 0.5 * (cov_shaped + cov_shaped.transpose(-1, -2))
@@ -646,6 +667,9 @@ class GeometryRHVAE(RHVAE):
         eps = float(self.eps_lf)
         steps = max(1, int(self.rhmc_fp_steps))
         damping = float(self.rhmc_fp_damping)
+        adaptive = bool(self.rhmc_adaptive_dual_step)
+        max_disp = float(self.rhmc_adaptive_max_dual_displacement)
+        min_scale = float(self.rhmc_adaptive_min_step_scale)
 
         def _explicit_fallback() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
             G_inv, G_log_det = self._metric_quantities(z, mu, M, training=training)
@@ -669,6 +693,19 @@ class GeometryRHVAE(RHVAE):
 
         # (B) Implicit full-step for position via fixed-point iterations
         z_new = z
+        eps_scale = 1.0
+        if adaptive:
+            # Predict movement at original eps
+            G_inv_z, _ = self._metric_quantities(z, mu, M, training=training)
+            v_init = torch.einsum("bij,bj->bi", G_inv_z, rho_half)
+            # Rough displacement estimate: delta_z approx eps * G_inv * rho
+            # For Standard metric, v can be huge.
+            disp = torch.norm(v_init, dim=-1) * eps
+            # scale eps down if disp > max_disp
+            scale = torch.clamp(max_disp / (disp + 1e-9), min=min_scale, max=1.0)
+            eps_scale = scale.min().item()
+            eps = eps * eps_scale
+
         for _ in range(steps):
             G_inv_z, _ = self._metric_quantities(z, mu, M, training=training)
             G_inv_new, _ = self._metric_quantities(z_new, mu, M, training=training)

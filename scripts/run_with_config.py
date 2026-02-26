@@ -14,10 +14,9 @@ def _value_to_cli(key: str, value: Any) -> list[str]:
     if isinstance(value, bool):
         return [f"--{key}"] if value else []
     if isinstance(value, (list, tuple)):
-        args: list[str] = []
-        for item in value:
-            args.extend(_value_to_cli(key, item))
-        return args
+        if len(value) == 0:
+            return []
+        return [f"--{key}", *[str(item) for item in value]]
     return [f"--{key}", str(value)]
 
 

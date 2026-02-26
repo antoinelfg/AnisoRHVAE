@@ -270,6 +270,15 @@ def create_sampler(
     n_lf: int = 15,
     eps_lf: float = 0.03,
     beta_zero: float = 1.0,
+    use_dual_metric: bool = False,
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.07,
+    adaptive_min_step_scale: float = 0.05,
+    volume_power: float = 2.0,
+    radial_prior_weight: float = 0.1,
+    momentum_persist: float = 0.0,
+    fp_steps: int = 15,
+    fp_damping: float = 0.72,
 ):
     """Create a sampler by name."""
     if sampler_name == "gaussian":
@@ -297,6 +306,25 @@ def create_sampler(
             beta_zero=beta_zero,
             include_volume_grad=True,
         )
+    elif sampler_name == "volume_riemannian":
+        sampler = sampler_cls(
+            model,
+            mcmc_steps_nbr=mcmc_steps,
+            n_lf=n_lf,
+            eps_lf=eps_lf,
+            beta_zero=beta_zero,
+            use_dual_metric=use_dual_metric,
+            adaptive_dual_step=adaptive_dual_step,
+            adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+            adaptive_min_step_scale=adaptive_min_step_scale,
+            volume_power=volume_power,
+            radial_prior_weight=radial_prior_weight,
+            fp_steps=fp_steps,
+            fp_damping=fp_damping,
+        )
+        # Not a constructor arg for this sampler class; keep compatibility by setting the attribute.
+        sampler.momentum_persist = float(momentum_persist)
+        return sampler
     else:
         return sampler_cls(
             model,
@@ -317,6 +345,15 @@ def sample_latents(
     eps_lf: float = 0.03,
     beta_zero: float = 1.0,
     init_std: float = 1.0,
+    use_dual_metric: bool = False,
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.07,
+    adaptive_min_step_scale: float = 0.05,
+    volume_power: float = 2.0,
+    radial_prior_weight: float = 0.1,
+    momentum_persist: float = 0.0,
+    fp_steps: int = 15,
+    fp_damping: float = 0.72,
 ) -> tuple[torch.Tensor, float]:
     """
     Sample latent codes using specified sampler.
@@ -334,7 +371,16 @@ def sample_latents(
         return samples, 0.0
     
     sampler = create_sampler(
-        model, sampler_name, mcmc_steps, n_lf, eps_lf, beta_zero
+        model, sampler_name, mcmc_steps, n_lf, eps_lf, beta_zero,
+        use_dual_metric=use_dual_metric,
+        adaptive_dual_step=adaptive_dual_step,
+        adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+        adaptive_min_step_scale=adaptive_min_step_scale,
+        volume_power=volume_power,
+        radial_prior_weight=radial_prior_weight,
+        momentum_persist=momentum_persist,
+        fp_steps=fp_steps,
+        fp_damping=fp_damping,
     )
     
     # Ensure sampler's device attribute is correct
@@ -475,6 +521,15 @@ def run_fid_evaluation(
     mcmc_steps: int = 100,
     n_lf: int = 15,
     eps_lf: float = 0.03,
+    use_dual_metric: bool = False,
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.07,
+    adaptive_min_step_scale: float = 0.05,
+    volume_power: float = 2.0,
+    radial_prior_weight: float = 0.1,
+    momentum_persist: float = 0.0,
+    fp_steps: int = 15,
+    fp_damping: float = 0.72,
     out_dir: Optional[Path] = None,
     wandb_run: Optional[Any] = None,
 ) -> dict[str, dict[str, float]]:
@@ -494,6 +549,15 @@ def run_fid_evaluation(
             z_samples, acc_rate = sample_latents(
                 model, sampler_name, n_samples, device,
                 mcmc_steps=mcmc_steps, n_lf=n_lf, eps_lf=eps_lf,
+                use_dual_metric=use_dual_metric,
+                adaptive_dual_step=adaptive_dual_step,
+                adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+                adaptive_min_step_scale=adaptive_min_step_scale,
+                volume_power=volume_power,
+                radial_prior_weight=radial_prior_weight,
+                momentum_persist=momentum_persist,
+                fp_steps=fp_steps,
+                fp_damping=fp_damping,
             )
             
             # Decode to images
@@ -623,6 +687,15 @@ def multi_start_sampling(
     mcmc_steps: int = 50,
     n_lf: int = 10,
     eps_lf: float = 0.03,
+    use_dual_metric: bool = False,
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.07,
+    adaptive_min_step_scale: float = 0.05,
+    volume_power: float = 2.0,
+    radial_prior_weight: float = 0.1,
+    momentum_persist: float = 0.0,
+    fp_steps: int = 15,
+    fp_damping: float = 0.72,
     out_dir: Optional[Path] = None,
     wandb_run: Optional[Any] = None,
 ) -> dict[str, Any]:
@@ -647,7 +720,22 @@ def multi_start_sampling(
     
     for idx in centroid_indices:
         start_point = centroids[idx:idx+1] + 0.1 * torch.randn(1, model.latent_dim, device=device)
-        sampler = create_sampler(model, sampler_name, mcmc_steps, n_lf, eps_lf)
+        sampler = create_sampler(
+            model,
+            sampler_name,
+            mcmc_steps,
+            n_lf,
+            eps_lf,
+            use_dual_metric=use_dual_metric,
+            adaptive_dual_step=adaptive_dual_step,
+            adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+            adaptive_min_step_scale=adaptive_min_step_scale,
+            volume_power=volume_power,
+            radial_prior_weight=radial_prior_weight,
+            momentum_persist=momentum_persist,
+            fp_steps=fp_steps,
+            fp_damping=fp_damping,
+        )
         
         if sampler is not None:
             chain, energies, acceptance = run_hmc_chain(
@@ -666,7 +754,22 @@ def multi_start_sampling(
     
     for i in range(n_gaussian_starts):
         start_point = torch.randn(1, model.latent_dim, device=device) * 2.0
-        sampler = create_sampler(model, sampler_name, mcmc_steps, n_lf, eps_lf)
+        sampler = create_sampler(
+            model,
+            sampler_name,
+            mcmc_steps,
+            n_lf,
+            eps_lf,
+            use_dual_metric=use_dual_metric,
+            adaptive_dual_step=adaptive_dual_step,
+            adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+            adaptive_min_step_scale=adaptive_min_step_scale,
+            volume_power=volume_power,
+            radial_prior_weight=radial_prior_weight,
+            momentum_persist=momentum_persist,
+            fp_steps=fp_steps,
+            fp_damping=fp_damping,
+        )
         
         if sampler is not None:
             chain, energies, acceptance = run_hmc_chain(
@@ -693,7 +796,22 @@ def multi_start_sampling(
         for y in y_range:
             start_2d = torch.tensor([[x, y]], device=device)
             start_point = pad_latent(start_2d, model.latent_dim)
-            sampler = create_sampler(model, sampler_name, mcmc_steps // 2, n_lf // 2, eps_lf)
+            sampler = create_sampler(
+                model,
+                sampler_name,
+                mcmc_steps // 2,
+                max(1, n_lf // 2),
+                eps_lf,
+                use_dual_metric=use_dual_metric,
+                adaptive_dual_step=adaptive_dual_step,
+                adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+                adaptive_min_step_scale=adaptive_min_step_scale,
+                volume_power=volume_power,
+                radial_prior_weight=radial_prior_weight,
+                momentum_persist=momentum_persist,
+                fp_steps=fp_steps,
+                fp_damping=fp_damping,
+            )
             
             if sampler is not None:
                 chain, energies, acceptance = run_hmc_chain(
@@ -1254,6 +1372,18 @@ def run_quality_metrics(
     device: torch.device,
     samplers: list[str] = ["gaussian", "riemannian", "geodesic"],
     n_samples: int = 1000,
+    mcmc_steps: int = 100,
+    n_lf: int = 15,
+    eps_lf: float = 0.03,
+    use_dual_metric: bool = False,
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.07,
+    adaptive_min_step_scale: float = 0.05,
+    volume_power: float = 2.0,
+    radial_prior_weight: float = 0.1,
+    momentum_persist: float = 0.0,
+    fp_steps: int = 15,
+    fp_damping: float = 0.72,
     out_dir: Optional[Path] = None,
     wandb_run: Optional[Any] = None,
 ) -> dict[str, dict[str, float]]:
@@ -1275,7 +1405,21 @@ def run_quality_metrics(
         
         try:
             # Generate samples
-            z_samples, acc_rate = sample_latents(model, sampler_name, n_samples, device)
+            z_samples, acc_rate = sample_latents(
+                model, sampler_name, n_samples, device,
+                mcmc_steps=mcmc_steps,
+                n_lf=n_lf,
+                eps_lf=eps_lf,
+                use_dual_metric=use_dual_metric,
+                adaptive_dual_step=adaptive_dual_step,
+                adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+                adaptive_min_step_scale=adaptive_min_step_scale,
+                volume_power=volume_power,
+                radial_prior_weight=radial_prior_weight,
+                momentum_persist=momentum_persist,
+                fp_steps=fp_steps,
+                fp_damping=fp_damping,
+            )
             
             # Diversity
             diversity = compute_diversity_score(z_samples)
@@ -1367,6 +1511,15 @@ def run_rhmc_diagnostics(
     sampler_name: str = "volume",
     n_lf: int = 15,
     eps_lf: float = 0.03,
+    use_dual_metric: bool = False,
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.07,
+    adaptive_min_step_scale: float = 0.05,
+    volume_power: float = 2.0,
+    radial_prior_weight: float = 0.1,
+    momentum_persist: float = 0.0,
+    fp_steps: int = 15,
+    fp_damping: float = 0.72,
     out_dir: Optional[Path] = None,
     wandb_run: Optional[Any] = None,
 ) -> dict[str, Any]:
@@ -1388,7 +1541,18 @@ def run_rhmc_diagnostics(
         start_idx = torch.randint(0, centroids.shape[0], (1,)).item()
         z0 = centroids[start_idx:start_idx + 1].clone().to(device)
         
-        sampler = create_sampler(model, sampler_name, chain_length, n_lf, eps_lf)
+        sampler = create_sampler(
+            model, sampler_name, chain_length, n_lf, eps_lf, 
+            use_dual_metric=use_dual_metric,
+            adaptive_dual_step=adaptive_dual_step,
+            adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+            adaptive_min_step_scale=adaptive_min_step_scale,
+            volume_power=volume_power,
+            radial_prior_weight=radial_prior_weight,
+            momentum_persist=momentum_persist,
+            fp_steps=fp_steps,
+            fp_damping=fp_damping,
+        )
         
         if sampler is None:
             continue
@@ -1521,6 +1685,15 @@ def run_sampling_diagnostics(
     mcmc_steps: int = 100,
     n_lf: int = 15,
     eps_lf: float = 0.03,
+    use_dual_metric: bool = False,
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.07,
+    adaptive_min_step_scale: float = 0.05,
+    volume_power: float = 2.0,
+    radial_prior_weight: float = 0.1,
+    momentum_persist: float = 0.0,
+    fp_steps: int = 15,
+    fp_damping: float = 0.72,
 ) -> dict[str, Any]:
     """
     Run comprehensive sampling diagnostics.
@@ -1588,6 +1761,15 @@ def run_sampling_diagnostics(
             mcmc_steps=mcmc_steps,
             n_lf=n_lf,
             eps_lf=eps_lf,
+            use_dual_metric=use_dual_metric,
+            adaptive_dual_step=adaptive_dual_step,
+            adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+            adaptive_min_step_scale=adaptive_min_step_scale,
+            volume_power=volume_power,
+            radial_prior_weight=radial_prior_weight,
+            momentum_persist=momentum_persist,
+            fp_steps=fp_steps,
+            fp_damping=fp_damping,
             out_dir=out_dir,
             wandb_run=wandb_run,
         )
@@ -1602,6 +1784,15 @@ def run_sampling_diagnostics(
             mcmc_steps=mcmc_steps // 2,
             n_lf=n_lf // 2,
             eps_lf=eps_lf,
+            use_dual_metric=use_dual_metric,
+            adaptive_dual_step=adaptive_dual_step,
+            adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+            adaptive_min_step_scale=adaptive_min_step_scale,
+            volume_power=volume_power,
+            radial_prior_weight=radial_prior_weight,
+            momentum_persist=momentum_persist,
+            fp_steps=fp_steps,
+            fp_damping=fp_damping,
             out_dir=out_dir,
             wandb_run=wandb_run,
         )
@@ -1630,6 +1821,18 @@ def run_sampling_diagnostics(
             model, centroids, real_data, device,
             samplers=quality_samplers,
             n_samples=quality_samples,
+            mcmc_steps=mcmc_steps,
+            n_lf=n_lf,
+            eps_lf=eps_lf,
+            use_dual_metric=use_dual_metric,
+            adaptive_dual_step=adaptive_dual_step,
+            adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+            adaptive_min_step_scale=adaptive_min_step_scale,
+            volume_power=volume_power,
+            radial_prior_weight=radial_prior_weight,
+            momentum_persist=momentum_persist,
+            fp_steps=fp_steps,
+            fp_damping=fp_damping,
             out_dir=out_dir,
             wandb_run=wandb_run,
         )
@@ -1644,6 +1847,15 @@ def run_sampling_diagnostics(
             sampler_name=rhmc_sampler,
             n_lf=n_lf,
             eps_lf=eps_lf,
+            use_dual_metric=use_dual_metric,
+            adaptive_dual_step=adaptive_dual_step,
+            adaptive_max_dual_displacement=adaptive_max_dual_displacement,
+            adaptive_min_step_scale=adaptive_min_step_scale,
+            volume_power=volume_power,
+            radial_prior_weight=radial_prior_weight,
+            momentum_persist=momentum_persist,
+            fp_steps=fp_steps,
+            fp_damping=fp_damping,
             out_dir=out_dir,
             wandb_run=wandb_run,
         )
@@ -1788,6 +2000,15 @@ def main():
     parser.add_argument("--mcmc_steps", type=int, default=100, help="MCMC steps for samplers")
     parser.add_argument("--n_lf", type=int, default=15, help="Leapfrog steps")
     parser.add_argument("--eps_lf", type=float, default=0.03, help="Leapfrog step size")
+    parser.add_argument("--use_dual_metric", action="store_true", help="Use dual metric convention (M=G^{-1}).")
+    parser.add_argument("--adaptive_dual_step", action="store_true", help="Enable adaptive step scaling in RHMC.")
+    parser.add_argument("--adaptive_max_dual_displacement", type=float, default=0.07)
+    parser.add_argument("--adaptive_min_step_scale", type=float, default=0.05)
+    parser.add_argument("--volume_power", type=float, default=2.0, help="Volume-element exponent for volume_riemannian.")
+    parser.add_argument("--radial_prior_weight", type=float, default=0.1, help="Optional radial prior stabilizer.")
+    parser.add_argument("--momentum_persist", type=float, default=0.0)
+    parser.add_argument("--fp_steps", type=int, default=15, help="Fixed-point iterations for implicit RHMC.")
+    parser.add_argument("--fp_damping", type=float, default=0.72, help="Fixed-point damping factor.")
     
     # WandB
     parser.add_argument("--wandb_project", type=str, default=None, help="WandB project")
@@ -1857,6 +2078,15 @@ def main():
         mcmc_steps=args.mcmc_steps,
         n_lf=args.n_lf,
         eps_lf=args.eps_lf,
+        use_dual_metric=args.use_dual_metric,
+        adaptive_dual_step=args.adaptive_dual_step,
+        adaptive_max_dual_displacement=args.adaptive_max_dual_displacement,
+        adaptive_min_step_scale=args.adaptive_min_step_scale,
+        volume_power=args.volume_power,
+        radial_prior_weight=args.radial_prior_weight,
+        momentum_persist=args.momentum_persist,
+        fp_steps=args.fp_steps,
+        fp_damping=args.fp_damping,
     )
     
     # Finish WandB

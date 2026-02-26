@@ -29,9 +29,10 @@ from src.utils.wandb_logging import init_wandb_run, safe_wandb_finish, safe_wand
 
 
 class VanillaVAE(nn.Module):
-    def __init__(self, latent_dim: int = 16, hidden_dim: int = 512):
+    def __init__(self, latent_dim: int = 16, hidden_dim: int = 512, input_dim: int = 28 * 28):
         super().__init__()
-        in_dim = 28 * 28
+        in_dim = int(input_dim)
+        self.input_dim = in_dim
         self.encoder = nn.Sequential(
             nn.Linear(in_dim, hidden_dim),
             nn.ReLU(),
@@ -72,6 +73,7 @@ class VanillaVAE(nn.Module):
 class TrainConfig:
     latent_dim: int
     hidden_dim: int
+    input_dim: int
     epochs: int
     batch_size: int
     lr: float
@@ -137,6 +139,14 @@ def main() -> None:
 
     try:
         processed_dir = (ROOT / args.processed_dir).resolve()
+        dataset_id = str(processed_dir.name)
+        metadata_path = processed_dir / "metadata.json"
+        if metadata_path.exists():
+            try:
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                dataset_id = str(metadata.get("dataset_id", dataset_id))
+            except Exception:
+                pass
         train_images, train_labels = load_split_tensor(processed_dir, "train")
         val_images, val_labels = load_split_tensor(processed_dir, "val")
 
@@ -145,9 +155,10 @@ def main() -> None:
 
         x_train = train_images.reshape(train_images.shape[0], -1)
         x_val = val_images.reshape(val_images.shape[0], -1)
+        input_dim = int(x_train.shape[1])
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = VanillaVAE(latent_dim=args.latent_dim, hidden_dim=args.hidden_dim).to(device)
+        model = VanillaVAE(latent_dim=args.latent_dim, hidden_dim=args.hidden_dim, input_dim=input_dim).to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
         train_loader = DataLoader(TensorDataset(x_train, train_labels), batch_size=args.batch_size, shuffle=True)
@@ -202,6 +213,7 @@ def main() -> None:
                 "state_dict": model.state_dict(),
                 "latent_dim": args.latent_dim,
                 "hidden_dim": args.hidden_dim,
+                "input_dim": input_dim,
             },
             out_dir / "model.pt",
         )
@@ -209,13 +221,14 @@ def main() -> None:
         cfg = TrainConfig(
             latent_dim=args.latent_dim,
             hidden_dim=args.hidden_dim,
+            input_dim=input_dim,
             epochs=args.epochs,
             batch_size=args.batch_size,
             lr=args.lr,
             beta_kl=args.beta_kl,
             n=args.n,
             seed=args.seed,
-            dataset_id="rotmnist_v1",
+            dataset_id=dataset_id,
         )
         write_json(out_dir / "config.json", asdict(cfg))
 

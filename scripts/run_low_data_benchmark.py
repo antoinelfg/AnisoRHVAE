@@ -33,7 +33,7 @@ from pythae.models.rhvae.rhvae_utils import create_inverse_metric, create_metric
 from scripts.sampling_diagnostics import geodesic_interpolation
 from src.models.model_adapter import ModelAdapter
 from src.models.rhvae_geometry import GeometryRHVAE, GeometryRHVAEConfig
-from src.models.samplers.hmc_sampler import RHVAEVolumeElementHMCSampler
+from src.models.samplers.hmc_sampler import RHVAEVolumeElementHMCSampler, VolumeElementRiemannianHMCSampler
 from src.utils.low_data_io import load_split_tensor, load_subset_indices, subset_from_indices
 from src.utils.low_data_metrics import (
     augmentation_eval,
@@ -53,9 +53,9 @@ from src.utils.wandb_logging import (
 
 
 class _VanillaVAE(torch.nn.Module):
-    def __init__(self, latent_dim: int = 16, hidden_dim: int = 512):
+    def __init__(self, latent_dim: int = 16, hidden_dim: int = 512, input_dim: int = 28 * 28):
         super().__init__()
-        in_dim = 28 * 28
+        in_dim = int(input_dim)
         self.encoder = torch.nn.Sequential(
             torch.nn.Linear(in_dim, hidden_dim),
             torch.nn.ReLU(),
@@ -79,6 +79,37 @@ class _VanillaVAE(torch.nn.Module):
 
     def decode(self, z: torch.Tensor) -> torch.Tensor:
         return self.decoder(z)
+
+
+def _normalize_input_dim(raw: Any, fallback: int = 28 * 28) -> int:
+    if raw is None:
+        return int(fallback)
+    if isinstance(raw, (list, tuple)):
+        if not raw:
+            return int(fallback)
+        return int(raw[0])
+    if isinstance(raw, torch.Size):
+        if len(raw) == 0:
+            return int(fallback)
+        return int(raw[0])
+    return int(raw)
+
+
+def _infer_image_shape(model_dir: Path, flat_dim: int) -> tuple[int, int, int]:
+    train_data_path = model_dir / "train_data.pt"
+    if train_data_path.exists():
+        try:
+            payload = torch.load(train_data_path, map_location="cpu")
+            if isinstance(payload, dict):
+                images = payload.get("images")
+                if isinstance(images, torch.Tensor) and images.ndim == 4:
+                    return (int(images.shape[1]), int(images.shape[2]), int(images.shape[3]))
+        except Exception:
+            pass
+    side = int(round(math.sqrt(float(flat_dim))))
+    if side * side == int(flat_dim):
+        return (1, side, side)
+    return (1, int(flat_dim), 1)
 
 
 class _Encoder(torch.nn.Module):
@@ -132,7 +163,9 @@ class VanillaVAEAdapter:
         payload = torch.load(model_dir / "model.pt", map_location=device)
         latent_dim = int(payload.get("latent_dim", 16))
         hidden_dim = int(payload.get("hidden_dim", 512))
-        model = _VanillaVAE(latent_dim=latent_dim, hidden_dim=hidden_dim).to(device)
+        input_dim = _normalize_input_dim(payload.get("input_dim", 28 * 28), fallback=28 * 28)
+        image_shape = _infer_image_shape(model_dir, input_dim)
+        model = _VanillaVAE(latent_dim=latent_dim, hidden_dim=hidden_dim, input_dim=input_dim).to(device)
         model.load_state_dict(payload["state_dict"])
         model.eval()
 
@@ -140,6 +173,7 @@ class VanillaVAEAdapter:
         self.model_id = "vanilla_vae"
         self.latent_dim = latent_dim
         self.device = device
+        self.image_shape = image_shape
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         xx = x.to(self.device).reshape(x.shape[0], -1)
@@ -151,7 +185,8 @@ class VanillaVAEAdapter:
         zz = z.to(self.device)
         with torch.no_grad():
             recon = self.model.decode(zz)
-        return recon.reshape(zz.shape[0], 1, 28, 28)
+        c, h, w = self.image_shape
+        return recon.reshape(zz.shape[0], c, h, w)
 
     def sample_latents(self, n_samples: int, device: torch.device) -> torch.Tensor:
         return torch.randn(int(n_samples), self.latent_dim, device=device)
@@ -167,7 +202,13 @@ class VanillaVAEAdapter:
 
 
 class RHVAEAdapter:
-    def __init__(self, model_dir: Path, device: torch.device, model_id: str):
+    def __init__(
+        self,
+        model_dir: Path,
+        device: torch.device,
+        model_id: str,
+        sampler_cfg: dict[str, Any] | None = None,
+    ):
         metric_payload = torch.load(model_dir / "rhvae_metric.pt", map_location="cpu")
         cfg_dict = dict(metric_payload.get("config", {}))
 
@@ -177,13 +218,15 @@ class RHVAEAdapter:
             raise RuntimeError(f"Invalid RHVAE metric payload in {model_dir}")
 
         latent_dim = int(cfg_dict.get("latent_dim", centroids.shape[-1]))
+        input_dim = _normalize_input_dim(cfg_dict.get("input_dim", 28 * 28), fallback=28 * 28)
+        image_shape = _infer_image_shape(model_dir, input_dim)
 
         is_geometry = bool(cfg_dict.get("use_attractor", False) or cfg_dict.get("kernel_type", "isotropic") != "isotropic" or model_id == "aniso")
 
         if is_geometry:
             allowed = {k for k, v in GeometryRHVAEConfig.__dataclass_fields__.items() if v.init}
             init_kwargs = {k: v for k, v in cfg_dict.items() if k in allowed}
-            init_kwargs.setdefault("input_dim", (28 * 28,))
+            init_kwargs.setdefault("input_dim", (input_dim,))
             init_kwargs.setdefault("latent_dim", latent_dim)
             init_kwargs.setdefault("temperature", float(metric_payload.get("temperature", 0.5)))
             init_kwargs.setdefault("regularization", float(metric_payload.get("regularization", 0.01)))
@@ -197,7 +240,7 @@ class RHVAEAdapter:
         else:
             allowed = {k for k, v in RHVAEConfig.__dataclass_fields__.items() if v.init}
             init_kwargs = {k: v for k, v in cfg_dict.items() if k in allowed}
-            init_kwargs.setdefault("input_dim", (28 * 28,))
+            init_kwargs.setdefault("input_dim", (input_dim,))
             init_kwargs.setdefault("latent_dim", latent_dim)
             init_kwargs.setdefault("temperature", float(metric_payload.get("temperature", 0.5)))
             init_kwargs.setdefault("regularization", float(metric_payload.get("regularization", 0.01)))
@@ -221,6 +264,8 @@ class RHVAEAdapter:
         self.latent_dim = int(latent_dim)
         self.device = device
         self.centroids = centroids.to(device)
+        self.image_shape = image_shape
+        self.sampler_cfg = dict(sampler_cfg or {})
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         xx = x.to(self.device).reshape(x.shape[0], -1)
@@ -232,17 +277,49 @@ class RHVAEAdapter:
         zz = z.to(self.device)
         with torch.no_grad():
             recon = self.model.decoder(zz)["reconstruction"]
-        return recon.reshape(zz.shape[0], 1, 28, 28)
+        c, h, w = self.image_shape
+        return recon.reshape(zz.shape[0], c, h, w)
 
     def sample_latents(self, n_samples: int, device: torch.device) -> torch.Tensor:
         try:
-            sampler = RHVAEVolumeElementHMCSampler(
-                self.model,
-                mcmc_steps_nbr=60,
-                n_lf=20,
-                eps_lf=0.02,
-                beta_zero=1.0,
-            )
+            cfg = self.sampler_cfg
+            sampler_name = str(cfg.get("name", "volume")).strip().lower()
+            mcmc_steps = int(cfg.get("mcmc_steps", 60))
+            n_lf = int(cfg.get("n_lf", 20))
+            eps_lf = float(cfg.get("eps_lf", 0.02))
+            beta_zero = float(cfg.get("beta_zero", 1.0))
+            volume_power = float(cfg.get("volume_power", 0.5))
+
+            if sampler_name == "volume_riemannian":
+                sampler = VolumeElementRiemannianHMCSampler(
+                    self.model,
+                    mcmc_steps_nbr=mcmc_steps,
+                    n_lf=n_lf,
+                    eps_lf=eps_lf,
+                    beta_zero=beta_zero,
+                    volume_power=volume_power,
+                    radial_prior_weight=float(cfg.get("radial_prior_weight", 0.0)),
+                    use_dual_metric=bool(cfg.get("use_dual_metric", False)),
+                    fp_steps=int(cfg.get("fp_steps", 50)),
+                    fp_damping=float(cfg.get("fp_damping", 0.5)),
+                    momentum_persist=float(cfg.get("momentum_persist", 0.0)),
+                    adaptive_dual_step=bool(cfg.get("adaptive_dual_step", False)),
+                    adaptive_max_dual_displacement=float(cfg.get("adaptive_max_dual_displacement", 0.75)),
+                    adaptive_min_step_scale=float(cfg.get("adaptive_min_step_scale", 0.05)),
+                )
+            elif sampler_name == "volume":
+                sampler = RHVAEVolumeElementHMCSampler(
+                    self.model,
+                    mcmc_steps_nbr=mcmc_steps,
+                    n_lf=n_lf,
+                    eps_lf=eps_lf,
+                    beta_zero=beta_zero,
+                    volume_power=volume_power,
+                )
+                if hasattr(sampler, "momentum_persist"):
+                    sampler.momentum_persist = float(cfg.get("momentum_persist", 0.0))
+            else:
+                raise ValueError(f"Unsupported RHVAE sampler_name={sampler_name}")
             z = sampler.sample(int(n_samples))
             return z.to(device)
         except Exception:
@@ -378,11 +455,16 @@ def _load_registry_required_files(model_registry: Path) -> dict[str, list[str]]:
     return out
 
 
-def _make_adapter(model_id: str, model_dir: Path, device: torch.device) -> ModelAdapter:
+def _make_adapter(
+    model_id: str,
+    model_dir: Path,
+    device: torch.device,
+    rhvae_sampler_cfg: dict[str, Any] | None = None,
+) -> ModelAdapter:
     if model_id == "vanilla_vae":
         return VanillaVAEAdapter(model_dir, device)
     if model_id in {"rhvae_standard", "aniso"}:
-        return RHVAEAdapter(model_dir, device, model_id=model_id)
+        return RHVAEAdapter(model_dir, device, model_id=model_id, sampler_cfg=rhvae_sampler_cfg)
     if model_id == "ebm_conformal":
         return EBMConformalAdapter(model_dir, device)
     raise ValueError(f"Unsupported model_id: {model_id}")
@@ -821,6 +903,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--interp_steps", type=int, default=32)
     parser.add_argument("--aug_synth_samples", type=int, default=500)
     parser.add_argument("--bootstrap_samples", type=int, default=1000)
+    parser.add_argument(
+        "--rhvae_sampler_name",
+        type=str,
+        default="volume",
+        choices=["volume", "volume_riemannian"],
+        help="Sampler used for rhvae_standard/aniso latent generation.",
+    )
+    parser.add_argument("--rhvae_sampler_mcmc_steps", type=int, default=60)
+    parser.add_argument("--rhvae_sampler_n_lf", type=int, default=20)
+    parser.add_argument("--rhvae_sampler_eps_lf", type=float, default=0.02)
+    parser.add_argument("--rhvae_sampler_volume_power", type=float, default=0.5)
+    parser.add_argument("--rhvae_sampler_use_dual_metric", action="store_true")
+    parser.add_argument("--rhvae_sampler_fp_steps", type=int, default=15)
+    parser.add_argument("--rhvae_sampler_fp_damping", type=float, default=0.72)
+    parser.add_argument("--rhvae_sampler_momentum_persist", type=float, default=0.0)
+    parser.add_argument("--rhvae_sampler_radial_prior_weight", type=float, default=0.0)
+    parser.add_argument("--rhvae_sampler_adaptive_dual_step", action="store_true")
+    parser.add_argument("--rhvae_sampler_adaptive_max_dual_displacement", type=float, default=0.07)
+    parser.add_argument("--rhvae_sampler_adaptive_min_step_scale", type=float, default=0.05)
     parser.add_argument("--output_dir", type=str, default="results/low_data_benchmark")
     parser.add_argument("--wandb_project", type=str, default=None)
     parser.add_argument("--wandb_entity", type=str, default=None)
@@ -870,6 +971,22 @@ def main() -> None:
         fig_dir.mkdir(parents=True, exist_ok=True)
 
         required = _load_registry_required_files(registry_path)
+        rhvae_sampler_cfg = {
+            "name": str(args.rhvae_sampler_name),
+            "mcmc_steps": int(args.rhvae_sampler_mcmc_steps),
+            "n_lf": int(args.rhvae_sampler_n_lf),
+            "eps_lf": float(args.rhvae_sampler_eps_lf),
+            "beta_zero": 1.0,
+            "volume_power": float(args.rhvae_sampler_volume_power),
+            "use_dual_metric": bool(args.rhvae_sampler_use_dual_metric),
+            "fp_steps": int(args.rhvae_sampler_fp_steps),
+            "fp_damping": float(args.rhvae_sampler_fp_damping),
+            "momentum_persist": float(args.rhvae_sampler_momentum_persist),
+            "radial_prior_weight": float(args.rhvae_sampler_radial_prior_weight),
+            "adaptive_dual_step": bool(args.rhvae_sampler_adaptive_dual_step),
+            "adaptive_max_dual_displacement": float(args.rhvae_sampler_adaptive_max_dual_displacement),
+            "adaptive_min_step_scale": float(args.rhvae_sampler_adaptive_min_step_scale),
+        }
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -923,7 +1040,12 @@ def main() -> None:
                         continue
 
                     try:
-                        adapter = _make_adapter(model_id, model_dir, device=device)
+                        adapter = _make_adapter(
+                            model_id,
+                            model_dir,
+                            device=device,
+                            rhvae_sampler_cfg=rhvae_sampler_cfg,
+                        )
                     except Exception as exc:
                         row = {
                             "n": int(n),
