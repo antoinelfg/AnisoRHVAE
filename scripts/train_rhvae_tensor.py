@@ -683,6 +683,8 @@ def main() -> None:
                     new_t = max(1e-6, float(args.temperature_scale) * auto_suggested)
                     with torch.no_grad():
                         model.temperature.fill_(new_t)
+                        if hasattr(model, "update_physics_parameters"):
+                            model.update_physics_parameters()
                     auto_temperature_set = True
                     print(
                         "[train_rhvae_tensor] auto temperature set: "

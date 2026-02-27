@@ -1,710 +1,0 @@
-srun: job 4695979 queued and waiting for resources
-srun: job 4695979 has been allocated resources
-wandb: Currently logged in as: antoine-laforgue (antoine-laforgue-mines-paris-alumni) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
-wandb: Tracking run with wandb version 0.19.10
-wandb: Run data is saved locally in /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/wandb/run-20260223_104058-wcpccepb
-wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run geom_mahalanobis_ap1.0959864113997024_kp1.0_attr1_ns63_mf50_seed13
-wandb: ⭐️ View project at https://wandb.ai/antoine-laforgue-mines-paris-alumni/RHVAE-baseline
-wandb: 🚀 View run at https://wandb.ai/antoine-laforgue-mines-paris-alumni/RHVAE-baseline/runs/wcpccepb
-[RHVAE BASELINE] Using device: cuda
-[RHVAE BASELINE] Analysis RHMC sampler: volume
-[RHVAE BASELINE] FID samplers: ['gaussian', 'volume']
-[RHVAE BASELINE] WandB initialized
-[RHVAE BASELINE] Loading ellipse data...
-[RHVAE BASELINE] Extracted 50 frames, shape: torch.Size([1, 64, 64])
-[RHVAE BASELINE] Extracted 6 frames, shape: torch.Size([1, 64, 64])
-[RHVAE BASELINE] Training data shape: torch.Size([50, 4096])
-[RHVAE BASELINE] Validation data shape: torch.Size([6, 4096])
-[RHVAE BASELINE] RHVAE config: latent_dim=2, n_centroids=100, T=0.5, variant=geometry, kernel=mahalanobis, attractor=True, 
-[RHVAE BASELINE] Starting training for 100 epochs...
-[RHVAE BASELINE] Adjusting batch_size for low-data regime: requested=64 -> effective=50 (train_samples=50)
-Epoch 1/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 1/100:   0%|          | 0/1 [00:11<?, ?it/s, loss=534.37]Epoch 1/100: 100%|██████████| 1/1 [00:11<00:00, 11.04s/it, loss=534.37]Epoch 1/100: 100%|██████████| 1/1 [00:11<00:00, 11.04s/it, loss=534.37]
-Epoch 1: loss=534.3745, recon_nll=524.5388, kl_like=9.8358, val_loss=455.3121
-Epoch 2/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 2/100:   0%|          | 0/1 [00:01<?, ?it/s, loss=454.45]Epoch 2/100: 100%|██████████| 1/1 [00:01<00:00,  1.47s/it, loss=454.45]Epoch 2/100: 100%|██████████| 1/1 [00:01<00:00,  1.48s/it, loss=454.45]
-Epoch 3/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 3/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=311.67]Epoch 3/100: 100%|██████████| 1/1 [00:00<00:00,  3.65it/s, loss=311.67]Epoch 3/100: 100%|██████████| 1/1 [00:00<00:00,  3.64it/s, loss=311.67]
-Epoch 4/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 4/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=221.92]Epoch 4/100: 100%|██████████| 1/1 [00:00<00:00,  2.97it/s, loss=221.92]Epoch 4/100: 100%|██████████| 1/1 [00:00<00:00,  2.97it/s, loss=221.92]
-Epoch 5/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 5/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=176.43]Epoch 5/100: 100%|██████████| 1/1 [00:00<00:00,  3.71it/s, loss=176.43]Epoch 5/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=176.43]
-Epoch 6/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 6/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=155.71]Epoch 6/100: 100%|██████████| 1/1 [00:00<00:00,  3.65it/s, loss=155.71]Epoch 6/100: 100%|██████████| 1/1 [00:00<00:00,  3.64it/s, loss=155.71]
-Epoch 7/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 7/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=141.00]Epoch 7/100: 100%|██████████| 1/1 [00:00<00:00,  2.99it/s, loss=141.00]Epoch 7/100: 100%|██████████| 1/1 [00:00<00:00,  2.98it/s, loss=141.00]
-Epoch 8/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 8/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=135.96]Epoch 8/100: 100%|██████████| 1/1 [00:00<00:00,  2.98it/s, loss=135.96]Epoch 8/100: 100%|██████████| 1/1 [00:00<00:00,  2.97it/s, loss=135.96]
-Epoch 9/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 9/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=127.99]Epoch 9/100: 100%|██████████| 1/1 [00:00<00:00,  2.99it/s, loss=127.99]Epoch 9/100: 100%|██████████| 1/1 [00:00<00:00,  2.98it/s, loss=127.99]
-Epoch 10/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 10/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=115.55]Epoch 10/100: 100%|██████████| 1/1 [00:00<00:00,  2.99it/s, loss=115.55]Epoch 10/100: 100%|██████████| 1/1 [00:00<00:00,  2.98it/s, loss=115.55]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.5326 < silverman_floor=0.7341, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.7341 (stat=mean_knn_5, base=0.7341)
-Epoch 10: loss=115.5470, recon_nll=62.1313, kl_like=53.4157, val_loss=90.9482
-Epoch 11/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 11/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=95.63]Epoch 11/100: 100%|██████████| 1/1 [00:00<00:00,  2.95it/s, loss=95.63]Epoch 11/100: 100%|██████████| 1/1 [00:00<00:00,  2.94it/s, loss=95.63]
-Epoch 12/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 12/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=83.59]Epoch 12/100: 100%|██████████| 1/1 [00:00<00:00,  2.98it/s, loss=83.59]Epoch 12/100: 100%|██████████| 1/1 [00:00<00:00,  2.98it/s, loss=83.59]
-Epoch 13/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 13/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=72.56]Epoch 13/100: 100%|██████████| 1/1 [00:00<00:00,  2.99it/s, loss=72.56]Epoch 13/100: 100%|██████████| 1/1 [00:00<00:00,  2.98it/s, loss=72.56]
-Epoch 14/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 14/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=70.12]Epoch 14/100: 100%|██████████| 1/1 [00:00<00:00,  2.99it/s, loss=70.12]Epoch 14/100: 100%|██████████| 1/1 [00:00<00:00,  2.99it/s, loss=70.12]
-Epoch 15/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 15/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=65.15]Epoch 15/100: 100%|██████████| 1/1 [00:00<00:00,  2.99it/s, loss=65.15]Epoch 15/100: 100%|██████████| 1/1 [00:00<00:00,  2.99it/s, loss=65.15]
-Epoch 16/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 16/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=57.39]Epoch 16/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=57.39]Epoch 16/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=57.39]
-Epoch 17/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 17/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=57.11]Epoch 17/100: 100%|██████████| 1/1 [00:00<00:00,  2.99it/s, loss=57.11]Epoch 17/100: 100%|██████████| 1/1 [00:00<00:00,  2.99it/s, loss=57.11]
-Epoch 18/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 18/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=53.08]Epoch 18/100: 100%|██████████| 1/1 [00:00<00:00,  2.97it/s, loss=53.08]Epoch 18/100: 100%|██████████| 1/1 [00:00<00:00,  2.96it/s, loss=53.08]
-Epoch 19/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 19/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=51.67]Epoch 19/100: 100%|██████████| 1/1 [00:00<00:00,  2.96it/s, loss=51.67]Epoch 19/100: 100%|██████████| 1/1 [00:00<00:00,  2.95it/s, loss=51.67]
-Epoch 20/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 20/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=49.30]Epoch 20/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=49.30]Epoch 20/100: 100%|██████████| 1/1 [00:00<00:00,  3.67it/s, loss=49.30]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.5994 < silverman_floor=1.2475, using floor
-[RHVAE BASELINE] Auto temperature set: T=1.2475 (stat=mean_knn_5, base=1.2475)
-Epoch 20: loss=49.3004, recon_nll=31.5528, kl_like=17.7477, val_loss=42.6318
-Epoch 21/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 21/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=45.77]Epoch 21/100: 100%|██████████| 1/1 [00:00<00:00,  3.63it/s, loss=45.77]Epoch 21/100: 100%|██████████| 1/1 [00:00<00:00,  3.62it/s, loss=45.77]
-Epoch 22/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 22/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=49.82]Epoch 22/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=49.82]Epoch 22/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=49.82]
-Epoch 23/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 23/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=49.37]Epoch 23/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=49.37]Epoch 23/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=49.37]
-Epoch 24/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 24/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=50.16]Epoch 24/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=50.16]Epoch 24/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=50.16]
-Epoch 25/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 25/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=47.67]Epoch 25/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=47.67]Epoch 25/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=47.67]
-Epoch 26/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 26/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=42.79]Epoch 26/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=42.79]Epoch 26/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=42.79]
-Epoch 27/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 27/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=34.81]Epoch 27/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=34.81]Epoch 27/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=34.81]
-Epoch 28/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 28/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=39.99]Epoch 28/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=39.99]Epoch 28/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=39.99]
-Epoch 29/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 29/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=41.22]Epoch 29/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=41.22]Epoch 29/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=41.22]
-Epoch 30/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 30/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=42.87]Epoch 30/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=42.87]Epoch 30/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=42.87]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.4481 < silverman_floor=0.8989, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.8989 (stat=mean_knn_5, base=0.8989)
-Epoch 30: loss=42.8675, recon_nll=27.9736, kl_like=14.8939, val_loss=36.4883
-Epoch 31/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 31/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=37.79]Epoch 31/100: 100%|██████████| 1/1 [00:00<00:00,  2.91it/s, loss=37.79]Epoch 31/100: 100%|██████████| 1/1 [00:00<00:00,  2.91it/s, loss=37.79]
-Epoch 32/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 32/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=35.29]Epoch 32/100: 100%|██████████| 1/1 [00:00<00:00,  2.96it/s, loss=35.29]Epoch 32/100: 100%|██████████| 1/1 [00:00<00:00,  2.96it/s, loss=35.29]
-Epoch 33/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 33/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=32.76]Epoch 33/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=32.76]Epoch 33/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=32.76]
-Epoch 34/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 34/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=29.35]Epoch 34/100: 100%|██████████| 1/1 [00:00<00:00,  2.96it/s, loss=29.35]Epoch 34/100: 100%|██████████| 1/1 [00:00<00:00,  2.96it/s, loss=29.35]
-Epoch 35/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 35/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=30.31]Epoch 35/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=30.31]Epoch 35/100: 100%|██████████| 1/1 [00:00<00:00,  3.67it/s, loss=30.31]
-Epoch 36/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 36/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=32.83]Epoch 36/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=32.83]Epoch 36/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=32.83]
-Epoch 37/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 37/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=31.37]Epoch 37/100: 100%|██████████| 1/1 [00:00<00:00,  3.62it/s, loss=31.37]Epoch 37/100: 100%|██████████| 1/1 [00:00<00:00,  3.61it/s, loss=31.37]
-Epoch 38/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 38/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=33.69]Epoch 38/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=33.69]Epoch 38/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=33.69]
-Epoch 39/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 39/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=31.09]Epoch 39/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=31.09]Epoch 39/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=31.09]
-Epoch 40/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 40/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=29.00]Epoch 40/100: 100%|██████████| 1/1 [00:00<00:00,  3.67it/s, loss=29.00]Epoch 40/100: 100%|██████████| 1/1 [00:00<00:00,  3.66it/s, loss=29.00]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.5846 < silverman_floor=1.0675, using floor
-[RHVAE BASELINE] Auto temperature set: T=1.0675 (stat=mean_knn_5, base=1.0675)
-Epoch 40: loss=28.9976, recon_nll=17.2210, kl_like=11.7765, val_loss=30.8165
-Epoch 41/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 41/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=24.04]Epoch 41/100: 100%|██████████| 1/1 [00:00<00:00,  3.62it/s, loss=24.04]Epoch 41/100: 100%|██████████| 1/1 [00:00<00:00,  3.61it/s, loss=24.04]
-Epoch 42/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 42/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=27.63]Epoch 42/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=27.63]Epoch 42/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=27.63]
-Epoch 43/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 43/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=26.47]Epoch 43/100: 100%|██████████| 1/1 [00:00<00:00,  3.71it/s, loss=26.47]Epoch 43/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=26.47]
-Epoch 44/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 44/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=25.46]Epoch 44/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=25.46]Epoch 44/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=25.46]
-Epoch 45/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 45/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=23.00]Epoch 45/100: 100%|██████████| 1/1 [00:00<00:00,  3.71it/s, loss=23.00]Epoch 45/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=23.00]
-Epoch 46/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 46/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=24.94]Epoch 46/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=24.94]Epoch 46/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=24.94]
-Epoch 47/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 47/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=26.44]Epoch 47/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=26.44]Epoch 47/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=26.44]
-Epoch 48/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 48/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=26.22]Epoch 48/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=26.22]Epoch 48/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=26.22]
-Epoch 49/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 49/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=23.69]Epoch 49/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=23.69]Epoch 49/100: 100%|██████████| 1/1 [00:00<00:00,  3.67it/s, loss=23.69]
-Epoch 50/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 50/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=22.26]Epoch 50/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=22.26]Epoch 50/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=22.26]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.5650 < silverman_floor=0.9389, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.9389 (stat=mean_knn_5, base=0.9389)
-Epoch 50: loss=22.2605, recon_nll=15.0440, kl_like=7.2165, val_loss=23.0662
-Epoch 51/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 51/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=23.25]Epoch 51/100: 100%|██████████| 1/1 [00:00<00:00,  3.64it/s, loss=23.25]Epoch 51/100: 100%|██████████| 1/1 [00:00<00:00,  3.62it/s, loss=23.25]
-Epoch 52/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 52/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=23.83]Epoch 52/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=23.83]Epoch 52/100: 100%|██████████| 1/1 [00:00<00:00,  3.67it/s, loss=23.83]
-Epoch 53/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 53/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=23.72]Epoch 53/100: 100%|██████████| 1/1 [00:00<00:00,  3.71it/s, loss=23.72]Epoch 53/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=23.72]
-Epoch 54/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 54/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=22.71]Epoch 54/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=22.71]Epoch 54/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=22.71]
-Epoch 55/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 55/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=20.70]Epoch 55/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=20.70]Epoch 55/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=20.70]
-Epoch 56/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 56/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=21.16]Epoch 56/100: 100%|██████████| 1/1 [00:00<00:00,  3.60it/s, loss=21.16]Epoch 56/100: 100%|██████████| 1/1 [00:00<00:00,  3.59it/s, loss=21.16]
-Epoch 57/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 57/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=21.12]Epoch 57/100: 100%|██████████| 1/1 [00:00<00:00,  2.92it/s, loss=21.12]Epoch 57/100: 100%|██████████| 1/1 [00:00<00:00,  2.92it/s, loss=21.12]
-Epoch 58/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 58/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=20.57]Epoch 58/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=20.57]Epoch 58/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=20.57]
-Epoch 59/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 59/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=20.11]Epoch 59/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=20.11]Epoch 59/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=20.11]
-Epoch 60/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 60/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=18.46]Epoch 60/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=18.46]Epoch 60/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=18.46]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.6422 < silverman_floor=0.9758, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.9758 (stat=mean_knn_5, base=0.9758)
-Epoch 60: loss=18.4619, recon_nll=11.5726, kl_like=6.8893, val_loss=21.8752
-Epoch 61/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 61/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=18.86]Epoch 61/100: 100%|██████████| 1/1 [00:00<00:00,  3.63it/s, loss=18.86]Epoch 61/100: 100%|██████████| 1/1 [00:00<00:00,  3.62it/s, loss=18.86]
-Epoch 62/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 62/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=19.23]Epoch 62/100: 100%|██████████| 1/1 [00:00<00:00,  2.97it/s, loss=19.23]Epoch 62/100: 100%|██████████| 1/1 [00:00<00:00,  2.96it/s, loss=19.23]
-Epoch 63/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 63/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=17.02]Epoch 63/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=17.02]Epoch 63/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=17.02]
-Epoch 64/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 64/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=20.13]Epoch 64/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=20.13]Epoch 64/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=20.13]
-Epoch 65/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 65/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=19.18]Epoch 65/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=19.18]Epoch 65/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=19.18]
-Epoch 66/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 66/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=16.83]Epoch 66/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=16.83]Epoch 66/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=16.83]
-Epoch 67/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 67/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=17.43]Epoch 67/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=17.43]Epoch 67/100: 100%|██████████| 1/1 [00:00<00:00,  3.67it/s, loss=17.43]
-Epoch 68/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 68/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=15.75]Epoch 68/100: 100%|██████████| 1/1 [00:00<00:00,  3.65it/s, loss=15.75]Epoch 68/100: 100%|██████████| 1/1 [00:00<00:00,  3.63it/s, loss=15.75]
-Epoch 69/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 69/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=16.46]Epoch 69/100: 100%|██████████| 1/1 [00:00<00:00,  3.66it/s, loss=16.46]Epoch 69/100: 100%|██████████| 1/1 [00:00<00:00,  3.65it/s, loss=16.46]
-Epoch 70/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 70/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=16.16]Epoch 70/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=16.16]Epoch 70/100: 100%|██████████| 1/1 [00:00<00:00,  3.67it/s, loss=16.16]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.6738 < silverman_floor=0.9474, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.9474 (stat=mean_knn_5, base=0.9474)
-Epoch 70: loss=16.1602, recon_nll=10.0482, kl_like=6.1120, val_loss=18.1952
-Epoch 71/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 71/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=16.72]Epoch 71/100: 100%|██████████| 1/1 [00:00<00:00,  3.62it/s, loss=16.72]Epoch 71/100: 100%|██████████| 1/1 [00:00<00:00,  3.61it/s, loss=16.72]
-Epoch 72/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 72/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=15.68]Epoch 72/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=15.68]Epoch 72/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=15.68]
-Epoch 73/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 73/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=16.32]Epoch 73/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=16.32]Epoch 73/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=16.32]
-Epoch 74/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 74/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=16.10]Epoch 74/100: 100%|██████████| 1/1 [00:00<00:00,  3.64it/s, loss=16.10]Epoch 74/100: 100%|██████████| 1/1 [00:00<00:00,  3.63it/s, loss=16.10]
-Epoch 75/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 75/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=15.33]Epoch 75/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=15.33]Epoch 75/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=15.33]
-Epoch 76/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 76/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=15.36]Epoch 76/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=15.36]Epoch 76/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=15.36]
-Epoch 77/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 77/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=14.72]Epoch 77/100: 100%|██████████| 1/1 [00:00<00:00,  3.65it/s, loss=14.72]Epoch 77/100: 100%|██████████| 1/1 [00:00<00:00,  3.64it/s, loss=14.72]
-Epoch 78/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 78/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=14.56]Epoch 78/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=14.56]Epoch 78/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=14.56]
-Epoch 79/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 79/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=15.80]Epoch 79/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=15.80]Epoch 79/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=15.80]
-Epoch 80/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 80/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=14.38]Epoch 80/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=14.38]Epoch 80/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=14.38]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.6571 < silverman_floor=0.8845, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.8845 (stat=mean_knn_5, base=0.8845)
-Epoch 80: loss=14.3788, recon_nll=9.1981, kl_like=5.1807, val_loss=20.1719
-Epoch 81/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 81/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=17.07]Epoch 81/100: 100%|██████████| 1/1 [00:00<00:00,  3.62it/s, loss=17.07]Epoch 81/100: 100%|██████████| 1/1 [00:00<00:00,  3.61it/s, loss=17.07]
-Epoch 82/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 82/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=16.05]Epoch 82/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=16.05]Epoch 82/100: 100%|██████████| 1/1 [00:00<00:00,  3.67it/s, loss=16.05]
-Epoch 83/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 83/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=14.64]Epoch 83/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=14.64]Epoch 83/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=14.64]
-Epoch 84/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 84/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=16.41]Epoch 84/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=16.41]Epoch 84/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=16.41]
-Epoch 85/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 85/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=18.88]Epoch 85/100: 100%|██████████| 1/1 [00:00<00:00,  3.71it/s, loss=18.88]Epoch 85/100: 100%|██████████| 1/1 [00:00<00:00,  3.70it/s, loss=18.88]
-Epoch 86/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 86/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=15.52]Epoch 86/100: 100%|██████████| 1/1 [00:00<00:00,  3.67it/s, loss=15.52]Epoch 86/100: 100%|██████████| 1/1 [00:00<00:00,  3.66it/s, loss=15.52]
-Epoch 87/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 87/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=15.92]Epoch 87/100: 100%|██████████| 1/1 [00:00<00:00,  3.65it/s, loss=15.92]Epoch 87/100: 100%|██████████| 1/1 [00:00<00:00,  3.64it/s, loss=15.92]
-Epoch 88/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 88/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=18.44]Epoch 88/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=18.44]Epoch 88/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=18.44]
-Epoch 89/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 89/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=17.13]Epoch 89/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=17.13]Epoch 89/100: 100%|██████████| 1/1 [00:00<00:00,  3.67it/s, loss=17.13]
-Epoch 90/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 90/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=14.41]Epoch 90/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=14.41]Epoch 90/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=14.41]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.6740 < silverman_floor=0.9394, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.9394 (stat=mean_knn_5, base=0.9394)
-Epoch 90: loss=14.4100, recon_nll=8.9071, kl_like=5.5029, val_loss=16.5154
-Epoch 91/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 91/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=13.44]Epoch 91/100: 100%|██████████| 1/1 [00:00<00:00,  3.62it/s, loss=13.44]Epoch 91/100: 100%|██████████| 1/1 [00:00<00:00,  3.62it/s, loss=13.44]
-Epoch 92/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 92/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=14.55]Epoch 92/100: 100%|██████████| 1/1 [00:00<00:00,  3.63it/s, loss=14.55]Epoch 92/100: 100%|██████████| 1/1 [00:00<00:00,  3.62it/s, loss=14.55]
-Epoch 93/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 93/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=14.83]Epoch 93/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=14.83]Epoch 93/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=14.83]
-Epoch 94/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 94/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=13.06]Epoch 94/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=13.06]Epoch 94/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=13.06]
-Epoch 95/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 95/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=13.24]Epoch 95/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=13.24]Epoch 95/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=13.24]
-Epoch 96/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 96/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=14.16]Epoch 96/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=14.16]Epoch 96/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=14.16]
-Epoch 97/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 97/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=13.66]Epoch 97/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=13.66]Epoch 97/100: 100%|██████████| 1/1 [00:00<00:00,  3.67it/s, loss=13.66]
-Epoch 98/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 98/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=12.72]Epoch 98/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=12.72]Epoch 98/100: 100%|██████████| 1/1 [00:00<00:00,  3.67it/s, loss=12.72]
-Epoch 99/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 99/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=13.07]Epoch 99/100: 100%|██████████| 1/1 [00:00<00:00,  3.69it/s, loss=13.07]Epoch 99/100: 100%|██████████| 1/1 [00:00<00:00,  3.68it/s, loss=13.07]
-Epoch 100/100:   0%|          | 0/1 [00:00<?, ?it/s]Epoch 100/100:   0%|          | 0/1 [00:00<?, ?it/s, loss=12.52]Epoch 100/100: 100%|██████████| 1/1 [00:00<00:00,  3.67it/s, loss=12.52]Epoch 100/100: 100%|██████████| 1/1 [00:00<00:00,  3.66it/s, loss=12.52]
-wandb: WARNING Saving files without folders. If you want to preserve subdirectories pass base_path to wandb.save, i.e. wandb.save("/mnt/folder/file.h5", base_path="/mnt")
-wandb: WARNING Tried to log to step 100 that is less than the current step 101. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
-wandb: WARNING Tried to log to step 100 that is less than the current step 101. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
-wandb: WARNING Tried to log to step 100 that is less than the current step 101. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
-/scratch/alaforgu/miniconda3/lib/python3.12/site-packages/torch/utils/data/dataloader.py:626: UserWarning: This DataLoader will create 12 worker processes in total. Our suggested max number of worker in current system is 2, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
-  warnings.warn(
-[RHVAE BASELINE] T floor activated: knn_candidate=0.6685 < silverman_floor=0.9011, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.9011 (stat=mean_knn_5, base=0.9011)
-Epoch 100: loss=12.5156, recon_nll=7.7674, kl_like=4.7481, val_loss=17.9530
-[RHVAE BASELINE] Training complete!
-[RHVAE BASELINE] Saved training curves to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N050/seed013/2026-02-23_10-40-57/training_curves.png
-[RHVAE BASELINE] Learned 50 centroids
-[RHVAE BASELINE] Saved metric to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N050/seed013/2026-02-23_10-40-57/rhvae_metric.pt
-[RHVAE BASELINE] Saved training data to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N050/seed013/2026-02-23_10-40-57/train_data.pt
--> Metric Field Tissot Indicatrices
--> Log-Determinant Landscape
--> Metric Surface (3D + contours)
--> Metric Surface (3D + contours)
--> Lost Sampler Rescue Dynamics
--> Volume-Element Rescue Dynamics
--> Geodesic vs Linear Interpolation
--> Curvature & Anisotropy Histograms
--> Distortion Map (Riemannian vs Euclidean)
-✅ RHVAE-Volume Acceptance Rate: 0.993
-
-=== Quantitative Summary ===
-Average geodesic savings (linear - geodesic): 0.871
-Prior condition mean: 945.371, on-manifold: 1.020
-Distortion ratio (mean/max): 2.549 / 6.466
-Results saved to /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N050/seed013/2026-02-23_10-40-57/analysis_results/2026-02-23_10-43-54
-[RHVAE BASELINE] Saved model to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N050/seed013/2026-02-23_10-40-57/rhvae_model.pt
-[RHVAE BASELINE] Running sampling diagnostics...
-
-============================================================
-Sampling Diagnostics for GeometryRHVAE
-============================================================
-Model path: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N050/seed013/2026-02-23_10-40-57
-Output dir: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N050/seed013/2026-02-23_10-40-57/sampling_diagnostics/2026-02-23_10-50-28
-Device: cuda
-Using provided model with 50 centroids, latent_dim=2
-
-=== FID Evaluation: gaussian ===
-compute FID between two folders
-Found 50 images in the folder /tmp/tmp4_xyiyq9/real
-FID real :   0%|          | 0/2 [00:00<?, ?it/s]FID real :  50%|█████     | 1/2 [00:06<00:06,  6.01s/it]FID real : 100%|██████████| 2/2 [00:13<00:00,  6.65s/it]FID real : 100%|██████████| 2/2 [00:13<00:00,  6.67s/it]
-Found 1000 images in the folder /tmp/tmp4_xyiyq9/gen
-FID gen :   0%|          | 0/32 [00:00<?, ?it/s]FID gen :   3%|▎         | 1/32 [00:02<01:30,  2.92s/it]FID gen :   6%|▋         | 2/32 [00:03<00:41,  1.37s/it]FID gen :   9%|▉         | 3/32 [00:03<00:25,  1.12it/s]FID gen :  12%|█▎        | 4/32 [00:03<00:17,  1.56it/s]FID gen :  16%|█▌        | 5/32 [00:04<00:13,  1.99it/s]FID gen :  19%|█▉        | 6/32 [00:04<00:10,  2.42it/s]FID gen :  22%|██▏       | 7/32 [00:04<00:08,  2.84it/s]FID gen :  25%|██▌       | 8/32 [00:04<00:07,  3.18it/s]FID gen :  28%|██▊       | 9/32 [00:04<00:06,  3.43it/s]FID gen :  31%|███▏      | 10/32 [00:05<00:05,  3.90it/s]FID gen :  34%|███▍      | 11/32 [00:05<00:04,  4.36it/s]FID gen :  38%|███▊      | 12/32 [00:05<00:04,  4.76it/s]FID gen :  41%|████      | 13/32 [00:05<00:03,  4.86it/s]FID gen :  44%|████▍     | 14/32 [00:05<00:03,  5.24it/s]FID gen :  47%|████▋     | 15/32 [00:06<00:03,  5.40it/s]FID gen :  50%|█████     | 16/32 [00:06<00:02,  5.74it/s]FID gen :  53%|█████▎    | 17/32 [00:06<00:02,  5.76it/s]FID gen :  56%|█████▋    | 18/32 [00:06<00:02,  5.83it/s]FID gen :  59%|█████▉    | 19/32 [00:06<00:02,  6.17it/s]FID gen :  66%|██████▌   | 21/32 [00:06<00:01,  8.74it/s]FID gen :  72%|███████▏  | 23/32 [00:06<00:00, 11.05it/s]FID gen :  78%|███████▊  | 25/32 [00:06<00:00, 12.89it/s]FID gen :  84%|████████▍ | 27/32 [00:07<00:00, 14.32it/s]FID gen :  91%|█████████ | 29/32 [00:07<00:00, 15.52it/s]FID gen :  97%|█████████▋| 31/32 [00:07<00:00, 16.45it/s]FID gen : 100%|██████████| 32/32 [00:12<00:00,  2.54it/s]
-  FID: 195.38, Acceptance: 0.000
-
-=== FID Evaluation: volume ===
-✅ RHVAE-Volume Acceptance Rate: 0.996
-compute FID between two folders
-Found 50 images in the folder /tmp/tmpv0ch9d_q/real
-FID real :   0%|          | 0/2 [00:00<?, ?it/s]FID real :  50%|█████     | 1/2 [00:00<00:00,  1.11it/s]FID real : 100%|██████████| 2/2 [00:05<00:00,  3.12s/it]FID real : 100%|██████████| 2/2 [00:05<00:00,  2.93s/it]
-Found 1000 images in the folder /tmp/tmpv0ch9d_q/gen
-FID gen :   0%|          | 0/32 [00:00<?, ?it/s]FID gen :   3%|▎         | 1/32 [00:02<01:08,  2.22s/it]FID gen :   6%|▋         | 2/32 [00:02<00:33,  1.12s/it]FID gen :   9%|▉         | 3/32 [00:03<00:23,  1.22it/s]FID gen :  12%|█▎        | 4/32 [00:03<00:16,  1.65it/s]FID gen :  16%|█▌        | 5/32 [00:03<00:13,  2.02it/s]FID gen :  19%|█▉        | 6/32 [00:03<00:10,  2.43it/s]FID gen :  22%|██▏       | 7/32 [00:04<00:09,  2.70it/s]FID gen :  25%|██▌       | 8/32 [00:04<00:08,  2.98it/s]FID gen :  28%|██▊       | 9/32 [00:04<00:07,  3.11it/s]FID gen :  31%|███▏      | 10/32 [00:04<00:06,  3.30it/s]FID gen :  34%|███▍      | 11/32 [00:05<00:05,  3.51it/s]FID gen :  38%|███▊      | 12/32 [00:05<00:05,  3.91it/s]FID gen :  41%|████      | 13/32 [00:05<00:04,  4.25it/s]FID gen :  44%|████▍     | 14/32 [00:05<00:03,  4.70it/s]FID gen :  47%|████▋     | 15/32 [00:05<00:03,  5.11it/s]FID gen :  50%|█████     | 16/32 [00:06<00:02,  5.45it/s]FID gen :  53%|█████▎    | 17/32 [00:06<00:02,  6.13it/s]FID gen :  59%|█████▉    | 19/32 [00:06<00:01,  8.03it/s]FID gen :  66%|██████▌   | 21/32 [00:06<00:01, 10.16it/s]FID gen :  72%|███████▏  | 23/32 [00:06<00:00, 12.19it/s]FID gen :  78%|███████▊  | 25/32 [00:06<00:00, 13.78it/s]FID gen :  84%|████████▍ | 27/32 [00:06<00:00, 15.03it/s]FID gen :  91%|█████████ | 29/32 [00:06<00:00, 15.99it/s]FID gen :  97%|█████████▋| 31/32 [00:06<00:00, 16.70it/s]FID gen : 100%|██████████| 32/32 [00:12<00:00,  2.66it/s]
-wandb: uploading 2026-02-23_10-40-57/rhvae_metric.pt
-wandb:                                                                                
-wandb: 
-wandb: Run history:
-wandb:             analysis/avg_geodesic_savings ▁
-wandb:            analysis/distortion_ratio_mean ▁
-wandb:       analysis/metric_posterior_cond_mean ▁
-wandb:           analysis/metric_prior_cond_mean ▁
-wandb:             analysis/prior_condition_mean ▁
-wandb:                analysis/prior_logdet_mean ▁
-wandb:                analysis/prior_rhmc_accept ▁
-wandb:                 analysis/rhmc_energy_mean ▁
-wandb:                analysis/rhmc_final_energy ▁
-wandb:                                        lr ██████████████████████████████████▁▁▁▁▁▁
-wandb:                      metric/condition_max ▁██████████
-wandb:                     metric/condition_mean ▁█▇▇▇▇▇▇▇▇▇
-wandb:                       metric/eig_max_mean ▁█▇█▇▇▆▆▆▆▆
-wandb:                       metric/eig_min_mean ▁▃▅█▄▃▂▂▂▂▂
-wandb:                        metric/logdet_mean ▁███▇▇▇▆▆▆▆
-wandb:               metric_tissot_condition_max ▁██████████
-wandb:              metric_tissot_condition_mean ▁█▇▇▇▇▆▆▆▇▇
-wandb:     sampling/fid/gaussian/acceptance_rate ▁
-wandb:                 sampling/fid/gaussian/fid ▁
-wandb:       sampling/fid/volume/acceptance_rate ▁
-wandb:                   sampling/fid/volume/fid ▁
-wandb:            sampling/interpolation/n_pairs ▁
-wandb:    sampling/multi_start/n_centroid_chains ▁
-wandb:    sampling/multi_start/n_gaussian_chains ▁
-wandb:        sampling/multi_start/n_grid_chains ▁
-wandb: sampling/quality/gaussian/acceptance_rate ▁
-wandb:        sampling/quality/gaussian/coverage ▁
-wandb:       sampling/quality/gaussian/diversity ▁
-wandb:       sampling/quality/gaussian/precision ▁
-wandb:          sampling/quality/gaussian/recall ▁
-wandb:   sampling/quality/volume/acceptance_rate ▁
-wandb:          sampling/quality/volume/coverage ▁
-wandb:         sampling/quality/volume/diversity ▁
-wandb:         sampling/quality/volume/precision ▁
-wandb:            sampling/quality/volume/recall ▁
-wandb:             sampling/rhmc/mean_acceptance ▁
-wandb:                               train/epoch ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▃▃▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇██
-wandb:                         train/kinetic_nll ▄▄▆▇▇▅▅▅▅▄▆▁▆█▇▄▆▂▅▄▄▅▄▃▃▁▁▂▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                             train/kl_like ▂▇██▂▁▂▃▂▂▂▂▂▂▂▂▂▁▂▁▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                               train/log_q ▄▅▄▄▃▁▂▄▄▅▄▂▃▄▆▆▆▇▆▆▆▆▆▅▆▅▆▆▆▇▇█▇▆▇▇▇▇▇▆
-wandb:                                train/loss █▆▃▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                           train/prior_nll ▂▅▇█▇▄▂▁▁▂▂▂▂▁▁▂▂▁▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                           train/recon_nll █▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                           val/kinetic_nll ▅▇███▆▄▅▅▅▇▇█▇▇██▆▃▅▄▇▇▄▆▆▇▄▁▂▁▂▂▂▂▃▂▁▁▂
-wandb:                               val/kl_like ▁▇██▃▂▂▃▃▃▂▂▂▂▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                                 val/log_q ▅▆▄▄▂▂▁▂▃▄▂▄▆▆▆▇▆▅▅▄▆▄▆▅▅▆▅▅▇▆▇█▇▅▆▇▇▇▇▇
-wandb:                                  val/loss █▄▄▃▃▃▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                             val/prior_nll ▇██▆▂▁▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                             val/recon_nll █▄▄▃▃▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb: 
-wandb: Run summary:
-wandb:             analysis/avg_geodesic_savings 0.87117
-wandb:            analysis/distortion_ratio_mean 2.54906
-wandb:       analysis/metric_posterior_cond_mean 1.01999
-wandb:           analysis/metric_prior_cond_mean 945.37085
-wandb:             analysis/prior_condition_mean 406.90176
-wandb:                analysis/prior_logdet_mean -1.72382
-wandb:                analysis/prior_rhmc_accept 0.99314
-wandb:                 analysis/rhmc_energy_mean -0.469
-wandb:                analysis/rhmc_final_energy 1.33052
-wandb:                                        lr 0.0005
-wandb:                      metric/condition_max 1370.98926
-wandb:                     metric/condition_mean 684.56232
-wandb:                       metric/eig_max_mean 37.61709
-wandb:                       metric/eig_min_mean 0.11832
-wandb:                        metric/logdet_mean -0.18502
-wandb:               metric_tissot_condition_max 1308.53003
-wandb:              metric_tissot_condition_mean 457.49149
-wandb:     sampling/fid/gaussian/acceptance_rate 0
-wandb:                 sampling/fid/gaussian/fid 195.3771
-wandb:       sampling/fid/volume/acceptance_rate 0.99558
-wandb:                   sampling/fid/volume/fid 93.24539
-wandb:            sampling/interpolation/n_pairs 4
-wandb:    sampling/multi_start/n_centroid_chains 6
-wandb:    sampling/multi_start/n_gaussian_chains 3
-wandb:        sampling/multi_start/n_grid_chains 4
-wandb: sampling/quality/gaussian/acceptance_rate 0
-wandb:        sampling/quality/gaussian/coverage 0.42
-wandb:       sampling/quality/gaussian/diversity 1.7725
-wandb:       sampling/quality/gaussian/precision 0.028
-wandb:          sampling/quality/gaussian/recall 0.2
-wandb:   sampling/quality/volume/acceptance_rate 0.98904
-wandb:          sampling/quality/volume/coverage 1
-wandb:         sampling/quality/volume/diversity 5.30897
-wandb:         sampling/quality/volume/precision 0.492
-wandb:            sampling/quality/volume/recall 1
-wandb:             sampling/rhmc/mean_acceptance 1
-wandb:                               train/epoch 100
-wandb:                         train/kinetic_nll -1.91538
-wandb:                             train/kl_like 4.74814
-wandb:                               train/log_q -0.08549
-wandb:                                train/loss 12.51558
-wandb:                           train/prior_nll 6.749
-wandb:                           train/recon_nll 7.76745
-wandb:                           val/kinetic_nll -1.18698
-wandb:                               val/kl_like 4.59347
-wandb:                                 val/log_q -0.55131
-wandb:                                  val/loss 17.953
-wandb:                             val/prior_nll 6.33176
-wandb:                             val/recon_nll 13.35954
-wandb: 
-wandb: 🚀 View run geom_mahalanobis_ap1.0959864113997024_kp1.0_attr1_ns63_mf50_seed13 at: https://wandb.ai/antoine-laforgue-mines-paris-alumni/RHVAE-baseline/runs/wcpccepb
-wandb: ⭐️ View project at: https://wandb.ai/antoine-laforgue-mines-paris-alumni/RHVAE-baseline
-wandb: Synced 5 W&B file(s), 82 media file(s), 0 artifact file(s) and 1 other file(s)
-wandb: Find logs at: ./wandb/run-20260223_104058-wcpccepb/logs
-  FID: 93.25, Acceptance: 0.996
-
-=== Multi-Start Sampling: Near Centroids ===
-=== Multi-Start Sampling: Gaussian Off-Manifold ===
-=== Multi-Start Sampling: Grid ===
-
-=== Interpolation Comparison ===
-  Pair 1/4
-  Pair 2/4
-  Pair 3/4
-  Pair 4/4
-
-=== Quality Metrics ===
-
-  gaussian:
-    Diversity: 1.772
-    Coverage: 0.420
-    Precision: 0.028
-    Recall: 0.200
-
-  volume:
-✅ RHVAE-Volume Acceptance Rate: 0.989
-    Diversity: 5.309
-    Coverage: 1.000
-    Precision: 0.492
-    Recall: 1.000
-
-=== RHMC Chain Diagnostics ===
-  Chain 1/4
-  Chain 2/4
-  Chain 3/4
-  Chain 4/4
-  Mean acceptance rate: 1.000
-
-============================================================
-Results saved to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N050/seed013/2026-02-23_10-40-57/sampling_diagnostics/2026-02-23_10-50-28
-============================================================
-[RHVAE BASELINE] Sampling diagnostics complete.
-[RHVAE BASELINE] Saved history to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N050/seed013/2026-02-23_10-40-57/training_history.pt
-
-[RHVAE BASELINE] All outputs saved to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N050/seed013/2026-02-23_10-40-57
-wandb: Currently logged in as: antoine-laforgue (antoine-laforgue-mines-paris-alumni) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
-wandb: Tracking run with wandb version 0.19.10
-wandb: Run data is saved locally in /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/wandb/run-20260223_105759-hf5kyvfq
-wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run geom_mahalanobis_ap1.0959864113997024_kp1.0_attr1_ns125_mf100_seed13
-wandb: ⭐️ View project at https://wandb.ai/antoine-laforgue-mines-paris-alumni/RHVAE-baseline
-wandb: 🚀 View run at https://wandb.ai/antoine-laforgue-mines-paris-alumni/RHVAE-baseline/runs/hf5kyvfq
-[RHVAE BASELINE] Using device: cuda
-[RHVAE BASELINE] Analysis RHMC sampler: volume
-[RHVAE BASELINE] FID samplers: ['gaussian', 'volume']
-[RHVAE BASELINE] WandB initialized
-[RHVAE BASELINE] Loading ellipse data...
-[RHVAE BASELINE] Extracted 100 frames, shape: torch.Size([1, 64, 64])
-[RHVAE BASELINE] Extracted 12 frames, shape: torch.Size([1, 64, 64])
-[RHVAE BASELINE] Training data shape: torch.Size([100, 4096])
-[RHVAE BASELINE] Validation data shape: torch.Size([12, 4096])
-[RHVAE BASELINE] RHVAE config: latent_dim=2, n_centroids=100, T=0.5, variant=geometry, kernel=mahalanobis, attractor=True, 
-[RHVAE BASELINE] Starting training for 100 epochs...
-Epoch 1/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 1/100:   0%|          | 0/2 [00:01<?, ?it/s, loss=532.99]Epoch 1/100:  50%|█████     | 1/2 [00:01<00:01,  1.07s/it, loss=532.99]Epoch 1/100:  50%|█████     | 1/2 [00:01<00:01,  1.07s/it, loss=447.95]Epoch 1/100: 100%|██████████| 2/2 [00:01<00:00,  1.56it/s, loss=447.95]Epoch 1/100: 100%|██████████| 2/2 [00:01<00:00,  1.41it/s, loss=447.95]
-Epoch 1: loss=502.3762, recon_nll=494.8126, kl_like=7.5636, val_loss=324.9256
-Epoch 2/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 2/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=325.25]Epoch 2/100:  50%|█████     | 1/2 [00:00<00:00,  2.84it/s, loss=325.25]Epoch 2/100:  50%|█████     | 1/2 [00:00<00:00,  2.84it/s, loss=231.20]Epoch 2/100: 100%|██████████| 2/2 [00:00<00:00,  3.28it/s, loss=231.20]Epoch 2/100: 100%|██████████| 2/2 [00:00<00:00,  3.20it/s, loss=231.20]
-Epoch 3/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 3/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=181.04]Epoch 3/100:  50%|█████     | 1/2 [00:00<00:00,  2.96it/s, loss=181.04]Epoch 3/100:  50%|█████     | 1/2 [00:00<00:00,  2.96it/s, loss=147.81]Epoch 3/100: 100%|██████████| 2/2 [00:00<00:00,  3.35it/s, loss=147.81]Epoch 3/100: 100%|██████████| 2/2 [00:00<00:00,  3.28it/s, loss=147.81]
-Epoch 4/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 4/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=123.32]Epoch 4/100:  50%|█████     | 1/2 [00:00<00:00,  2.98it/s, loss=123.32]Epoch 4/100:  50%|█████     | 1/2 [00:00<00:00,  2.98it/s, loss=109.53]Epoch 4/100: 100%|██████████| 2/2 [00:00<00:00,  3.36it/s, loss=109.53]Epoch 4/100: 100%|██████████| 2/2 [00:00<00:00,  3.29it/s, loss=109.53]
-Epoch 5/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 5/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=90.56]Epoch 5/100:  50%|█████     | 1/2 [00:00<00:00,  2.93it/s, loss=90.56]Epoch 5/100:  50%|█████     | 1/2 [00:00<00:00,  2.93it/s, loss=72.47]Epoch 5/100: 100%|██████████| 2/2 [00:00<00:00,  2.92it/s, loss=72.47]Epoch 5/100: 100%|██████████| 2/2 [00:00<00:00,  2.92it/s, loss=72.47]
-Epoch 6/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 6/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=71.18]Epoch 6/100:  50%|█████     | 1/2 [00:00<00:00,  2.95it/s, loss=71.18]Epoch 6/100:  50%|█████     | 1/2 [00:00<00:00,  2.95it/s, loss=64.69]Epoch 6/100: 100%|██████████| 2/2 [00:00<00:00,  2.95it/s, loss=64.69]Epoch 6/100: 100%|██████████| 2/2 [00:00<00:00,  2.95it/s, loss=64.69]
-Epoch 7/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 7/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=60.15]Epoch 7/100:  50%|█████     | 1/2 [00:00<00:00,  2.96it/s, loss=60.15]Epoch 7/100:  50%|█████     | 1/2 [00:00<00:00,  2.96it/s, loss=55.78]Epoch 7/100: 100%|██████████| 2/2 [00:00<00:00,  2.97it/s, loss=55.78]Epoch 7/100: 100%|██████████| 2/2 [00:00<00:00,  2.96it/s, loss=55.78]
-Epoch 8/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 8/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=57.00]Epoch 8/100:  50%|█████     | 1/2 [00:00<00:00,  2.99it/s, loss=57.00]Epoch 8/100:  50%|█████     | 1/2 [00:00<00:00,  2.99it/s, loss=44.12]Epoch 8/100: 100%|██████████| 2/2 [00:00<00:00,  2.98it/s, loss=44.12]Epoch 8/100: 100%|██████████| 2/2 [00:00<00:00,  2.98it/s, loss=44.12]
-Epoch 9/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 9/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=47.12]Epoch 9/100:  50%|█████     | 1/2 [00:00<00:00,  2.99it/s, loss=47.12]Epoch 9/100:  50%|█████     | 1/2 [00:00<00:00,  2.99it/s, loss=46.06]Epoch 9/100: 100%|██████████| 2/2 [00:00<00:00,  3.36it/s, loss=46.06]Epoch 9/100: 100%|██████████| 2/2 [00:00<00:00,  3.29it/s, loss=46.06]
-Epoch 10/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 10/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=41.29]Epoch 10/100:  50%|█████     | 1/2 [00:00<00:00,  2.99it/s, loss=41.29]Epoch 10/100:  50%|█████     | 1/2 [00:00<00:00,  2.99it/s, loss=39.17]Epoch 10/100: 100%|██████████| 2/2 [00:00<00:00,  2.97it/s, loss=39.17]Epoch 10/100: 100%|██████████| 2/2 [00:00<00:00,  2.97it/s, loss=39.17]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.3365 < silverman_floor=1.0321, using floor
-[RHVAE BASELINE] Auto temperature set: T=1.0321 (stat=mean_knn_5, base=1.0321)
-Epoch 10: loss=40.5225, recon_nll=29.8007, kl_like=10.7218, val_loss=35.1051
-Epoch 11/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 11/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=34.99]Epoch 11/100:  50%|█████     | 1/2 [00:00<00:00,  3.61it/s, loss=34.99]Epoch 11/100:  50%|█████     | 1/2 [00:00<00:00,  3.61it/s, loss=44.69]Epoch 11/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=44.69]Epoch 11/100: 100%|██████████| 2/2 [00:00<00:00,  3.64it/s, loss=44.69]
-Epoch 12/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 12/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=36.19]Epoch 12/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=36.19]Epoch 12/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=31.46]Epoch 12/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=31.46]Epoch 12/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=31.46]
-Epoch 13/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 13/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=33.30]Epoch 13/100:  50%|█████     | 1/2 [00:00<00:00,  3.65it/s, loss=33.30]Epoch 13/100:  50%|█████     | 1/2 [00:00<00:00,  3.65it/s, loss=34.67]Epoch 13/100: 100%|██████████| 2/2 [00:00<00:00,  3.61it/s, loss=34.67]Epoch 13/100: 100%|██████████| 2/2 [00:00<00:00,  3.61it/s, loss=34.67]
-Epoch 14/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 14/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=30.56]Epoch 14/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=30.56]Epoch 14/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=31.99]Epoch 14/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=31.99]Epoch 14/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=31.99]
-Epoch 15/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 15/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=29.24]Epoch 15/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=29.24]Epoch 15/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=30.93]Epoch 15/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=30.93]Epoch 15/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=30.93]
-Epoch 16/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 16/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=27.62]Epoch 16/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=27.62]Epoch 16/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=24.64]Epoch 16/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=24.64]Epoch 16/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=24.64]
-Epoch 17/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 17/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=26.05]Epoch 17/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=26.05]Epoch 17/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=25.74]Epoch 17/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=25.74]Epoch 17/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=25.74]
-Epoch 18/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 18/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=26.31]Epoch 18/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=26.31]Epoch 18/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=24.37]Epoch 18/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=24.37]Epoch 18/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=24.37]
-Epoch 19/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 19/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=25.94]Epoch 19/100:  50%|█████     | 1/2 [00:00<00:00,  3.59it/s, loss=25.94]Epoch 19/100:  50%|█████     | 1/2 [00:00<00:00,  3.59it/s, loss=21.06]Epoch 19/100: 100%|██████████| 2/2 [00:00<00:00,  3.63it/s, loss=21.06]Epoch 19/100: 100%|██████████| 2/2 [00:00<00:00,  3.62it/s, loss=21.06]
-Epoch 20/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 20/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=23.51]Epoch 20/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=23.51]Epoch 20/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=21.00]Epoch 20/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=21.00]Epoch 20/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=21.00]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.2569 < silverman_floor=0.9611, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.9611 (stat=mean_knn_5, base=0.9611)
-Epoch 20: loss=22.6020, recon_nll=16.1526, kl_like=6.4494, val_loss=20.1460
-Epoch 21/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 21/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=19.71]Epoch 21/100:  50%|█████     | 1/2 [00:00<00:00,  3.56it/s, loss=19.71]Epoch 21/100:  50%|█████     | 1/2 [00:00<00:00,  3.56it/s, loss=24.25]Epoch 21/100: 100%|██████████| 2/2 [00:00<00:00,  3.60it/s, loss=24.25]Epoch 21/100: 100%|██████████| 2/2 [00:00<00:00,  3.59it/s, loss=24.25]
-Epoch 22/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 22/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=21.07]Epoch 22/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=21.07]Epoch 22/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=21.22]Epoch 22/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=21.22]Epoch 22/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=21.22]
-Epoch 23/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 23/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=19.32]Epoch 23/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=19.32]Epoch 23/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=22.76]Epoch 23/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=22.76]Epoch 23/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=22.76]
-Epoch 24/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 24/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=20.24]Epoch 24/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=20.24]Epoch 24/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=19.60]Epoch 24/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=19.60]Epoch 24/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=19.60]
-Epoch 25/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 25/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=18.98]Epoch 25/100:  50%|█████     | 1/2 [00:00<00:00,  3.66it/s, loss=18.98]Epoch 25/100:  50%|█████     | 1/2 [00:00<00:00,  3.66it/s, loss=20.47]Epoch 25/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=20.47]Epoch 25/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=20.47]
-Epoch 26/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 26/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=19.94]Epoch 26/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=19.94]Epoch 26/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=21.34]Epoch 26/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=21.34]Epoch 26/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=21.34]
-Epoch 27/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 27/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=20.14]Epoch 27/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=20.14]Epoch 27/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=17.32]Epoch 27/100: 100%|██████████| 2/2 [00:00<00:00,  3.63it/s, loss=17.32]Epoch 27/100: 100%|██████████| 2/2 [00:00<00:00,  3.63it/s, loss=17.32]
-Epoch 28/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 28/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=19.81]Epoch 28/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=19.81]Epoch 28/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=19.08]Epoch 28/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=19.08]Epoch 28/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=19.08]
-Epoch 29/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 29/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=17.26]Epoch 29/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=17.26]Epoch 29/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=20.32]Epoch 29/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=20.32]Epoch 29/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=20.32]
-Epoch 30/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 30/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=22.39]Epoch 30/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=22.39]Epoch 30/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=19.54]Epoch 30/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=19.54]Epoch 30/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=19.54]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.2686 < silverman_floor=0.9660, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.9660 (stat=mean_knn_5, base=0.9660)
-Epoch 30: loss=21.3620, recon_nll=14.3534, kl_like=7.0086, val_loss=18.1493
-Epoch 31/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 31/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=17.58]Epoch 31/100:  50%|█████     | 1/2 [00:00<00:00,  3.62it/s, loss=17.58]Epoch 31/100:  50%|█████     | 1/2 [00:00<00:00,  3.62it/s, loss=19.98]Epoch 31/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=19.98]Epoch 31/100: 100%|██████████| 2/2 [00:00<00:00,  3.64it/s, loss=19.98]
-Epoch 32/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 32/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=19.79]Epoch 32/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=19.79]Epoch 32/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=17.72]Epoch 32/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=17.72]Epoch 32/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=17.72]
-Epoch 33/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 33/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=17.33]Epoch 33/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=17.33]Epoch 33/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=18.68]Epoch 33/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=18.68]Epoch 33/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=18.68]
-Epoch 34/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 34/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=18.58]Epoch 34/100:  50%|█████     | 1/2 [00:00<00:00,  3.62it/s, loss=18.58]Epoch 34/100:  50%|█████     | 1/2 [00:00<00:00,  3.62it/s, loss=16.93]Epoch 34/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=16.93]Epoch 34/100: 100%|██████████| 2/2 [00:00<00:00,  3.64it/s, loss=16.93]
-Epoch 35/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 35/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=17.99]Epoch 35/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=17.99]Epoch 35/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=20.22]Epoch 35/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=20.22]Epoch 35/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=20.22]
-Epoch 36/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 36/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=18.80]Epoch 36/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=18.80]Epoch 36/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=17.15]Epoch 36/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=17.15]Epoch 36/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=17.15]
-Epoch 37/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 37/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=17.07]Epoch 37/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=17.07]Epoch 37/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=17.95]Epoch 37/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=17.95]Epoch 37/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=17.95]
-Epoch 38/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 38/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=17.24]Epoch 38/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=17.24]Epoch 38/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=16.23]Epoch 38/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=16.23]Epoch 38/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=16.23]
-Epoch 39/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 39/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=16.88]Epoch 39/100:  50%|█████     | 1/2 [00:00<00:00,  3.61it/s, loss=16.88]Epoch 39/100:  50%|█████     | 1/2 [00:00<00:00,  3.61it/s, loss=20.85]Epoch 39/100: 100%|██████████| 2/2 [00:00<00:00,  3.62it/s, loss=20.85]Epoch 39/100: 100%|██████████| 2/2 [00:00<00:00,  3.62it/s, loss=20.85]
-Epoch 40/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 40/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=17.15]Epoch 40/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=17.15]Epoch 40/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=17.29]Epoch 40/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=17.29]Epoch 40/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=17.29]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.3683 < silverman_floor=0.9035, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.9035 (stat=mean_knn_5, base=0.9035)
-Epoch 40: loss=17.1981, recon_nll=11.2412, kl_like=5.9569, val_loss=18.2550
-Epoch 41/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 41/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=17.37]Epoch 41/100:  50%|█████     | 1/2 [00:00<00:00,  3.61it/s, loss=17.37]Epoch 41/100:  50%|█████     | 1/2 [00:00<00:00,  3.61it/s, loss=16.86]Epoch 41/100: 100%|██████████| 2/2 [00:00<00:00,  3.63it/s, loss=16.86]Epoch 41/100: 100%|██████████| 2/2 [00:00<00:00,  3.62it/s, loss=16.86]
-Epoch 42/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 42/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=16.23]Epoch 42/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=16.23]Epoch 42/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=15.98]Epoch 42/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=15.98]Epoch 42/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=15.98]
-Epoch 43/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 43/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=16.02]Epoch 43/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=16.02]Epoch 43/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=23.19]Epoch 43/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=23.19]Epoch 43/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=23.19]
-Epoch 44/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 44/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=19.44]Epoch 44/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=19.44]Epoch 44/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=15.71]Epoch 44/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=15.71]Epoch 44/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=15.71]
-Epoch 45/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 45/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=16.11]Epoch 45/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=16.11]Epoch 45/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=17.06]Epoch 45/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=17.06]Epoch 45/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=17.06]
-Epoch 46/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 46/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=17.17]Epoch 46/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=17.17]Epoch 46/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=14.83]Epoch 46/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=14.83]Epoch 46/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=14.83]
-Epoch 47/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 47/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=14.62]Epoch 47/100:  50%|█████     | 1/2 [00:00<00:00,  3.63it/s, loss=14.62]Epoch 47/100:  50%|█████     | 1/2 [00:00<00:00,  3.63it/s, loss=16.53]Epoch 47/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=16.53]Epoch 47/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=16.53]
-Epoch 48/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 48/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=15.77]Epoch 48/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=15.77]Epoch 48/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=13.87]Epoch 48/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=13.87]Epoch 48/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=13.87]
-Epoch 49/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 49/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=15.09]Epoch 49/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=15.09]Epoch 49/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=14.40]Epoch 49/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=14.40]Epoch 49/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=14.40]
-Epoch 50/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 50/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=14.56]Epoch 50/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=14.56]Epoch 50/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=15.66]Epoch 50/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=15.66]Epoch 50/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=15.66]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.3316 < silverman_floor=0.8894, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.8894 (stat=mean_knn_5, base=0.8894)
-Epoch 50: loss=14.9551, recon_nll=9.7671, kl_like=5.1880, val_loss=15.9738
-Epoch 51/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 51/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=14.90]Epoch 51/100:  50%|█████     | 1/2 [00:00<00:00,  3.61it/s, loss=14.90]Epoch 51/100:  50%|█████     | 1/2 [00:00<00:00,  3.61it/s, loss=13.67]Epoch 51/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=13.67]Epoch 51/100: 100%|██████████| 2/2 [00:00<00:00,  3.64it/s, loss=13.67]
-Epoch 52/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 52/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=14.85]Epoch 52/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=14.85]Epoch 52/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=14.49]Epoch 52/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=14.49]Epoch 52/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=14.49]
-Epoch 53/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 53/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=15.50]Epoch 53/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=15.50]Epoch 53/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=15.99]Epoch 53/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=15.99]Epoch 53/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=15.99]
-Epoch 54/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 54/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=13.46]Epoch 54/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=13.46]Epoch 54/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=14.29]Epoch 54/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=14.29]Epoch 54/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=14.29]
-Epoch 55/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 55/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=13.43]Epoch 55/100:  50%|█████     | 1/2 [00:00<00:00,  3.70it/s, loss=13.43]Epoch 55/100:  50%|█████     | 1/2 [00:00<00:00,  3.70it/s, loss=14.28]Epoch 55/100: 100%|██████████| 2/2 [00:00<00:00,  3.69it/s, loss=14.28]Epoch 55/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=14.28]
-Epoch 56/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 56/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=13.98]Epoch 56/100:  50%|█████     | 1/2 [00:00<00:00,  3.70it/s, loss=13.98]Epoch 56/100:  50%|█████     | 1/2 [00:00<00:00,  3.70it/s, loss=15.27]Epoch 56/100: 100%|██████████| 2/2 [00:00<00:00,  3.69it/s, loss=15.27]Epoch 56/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=15.27]
-Epoch 57/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 57/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=13.11]Epoch 57/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=13.11]Epoch 57/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=13.82]Epoch 57/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=13.82]Epoch 57/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=13.82]
-Epoch 58/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 58/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=15.16]Epoch 58/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=15.16]Epoch 58/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=14.72]Epoch 58/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=14.72]Epoch 58/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=14.72]
-Epoch 59/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 59/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=13.16]Epoch 59/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=13.16]Epoch 59/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=15.06]Epoch 59/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=15.06]Epoch 59/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=15.06]
-Epoch 60/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 60/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=16.06]Epoch 60/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=16.06]Epoch 60/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=12.44]Epoch 60/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=12.44]Epoch 60/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=12.44]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.3419 < silverman_floor=0.8931, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.8931 (stat=mean_knn_5, base=0.8931)
-Epoch 60: loss=14.7576, recon_nll=8.8729, kl_like=5.8847, val_loss=13.6269
-Epoch 61/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 61/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=12.86]Epoch 61/100:  50%|█████     | 1/2 [00:00<00:00,  3.60it/s, loss=12.86]Epoch 61/100:  50%|█████     | 1/2 [00:00<00:00,  3.60it/s, loss=15.45]Epoch 61/100: 100%|██████████| 2/2 [00:00<00:00,  3.64it/s, loss=15.45]Epoch 61/100: 100%|██████████| 2/2 [00:00<00:00,  3.63it/s, loss=15.45]
-Epoch 62/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 62/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=14.15]Epoch 62/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=14.15]Epoch 62/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=14.67]Epoch 62/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=14.67]Epoch 62/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=14.67]
-Epoch 63/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 63/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=12.74]Epoch 63/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=12.74]Epoch 63/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=15.54]Epoch 63/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=15.54]Epoch 63/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=15.54]
-Epoch 64/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 64/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=13.91]Epoch 64/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=13.91]Epoch 64/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=13.34]Epoch 64/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=13.34]Epoch 64/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=13.34]
-Epoch 65/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 65/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=13.65]Epoch 65/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=13.65]Epoch 65/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=14.40]Epoch 65/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=14.40]Epoch 65/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=14.40]
-Epoch 66/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 66/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=13.90]Epoch 66/100:  50%|█████     | 1/2 [00:00<00:00,  3.64it/s, loss=13.90]Epoch 66/100:  50%|█████     | 1/2 [00:00<00:00,  3.64it/s, loss=11.99]Epoch 66/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=11.99]Epoch 66/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=11.99]
-Epoch 67/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 67/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=13.04]Epoch 67/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=13.04]Epoch 67/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=13.07]Epoch 67/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=13.07]Epoch 67/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=13.07]
-Epoch 68/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 68/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=12.57]Epoch 68/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=12.57]Epoch 68/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=13.08]Epoch 68/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=13.08]Epoch 68/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=13.08]
-Epoch 69/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 69/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=12.66]Epoch 69/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=12.66]Epoch 69/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=11.11]Epoch 69/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=11.11]Epoch 69/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=11.11]
-Epoch 70/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 70/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=11.64]Epoch 70/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=11.64]Epoch 70/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=12.28]Epoch 70/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=12.28]Epoch 70/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=12.28]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.3382 < silverman_floor=0.8753, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.8753 (stat=mean_knn_5, base=0.8753)
-Epoch 70: loss=11.8700, recon_nll=6.9158, kl_like=4.9542, val_loss=12.8001
-Epoch 71/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 71/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=11.70]Epoch 71/100:  50%|█████     | 1/2 [00:00<00:00,  3.62it/s, loss=11.70]Epoch 71/100:  50%|█████     | 1/2 [00:00<00:00,  3.62it/s, loss=12.25]Epoch 71/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=12.25]Epoch 71/100: 100%|██████████| 2/2 [00:00<00:00,  3.64it/s, loss=12.25]
-Epoch 72/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 72/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=12.65]Epoch 72/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=12.65]Epoch 72/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=12.04]Epoch 72/100: 100%|██████████| 2/2 [00:00<00:00,  3.63it/s, loss=12.04]Epoch 72/100: 100%|██████████| 2/2 [00:00<00:00,  3.63it/s, loss=12.04]
-Epoch 73/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 73/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=12.12]Epoch 73/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=12.12]Epoch 73/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=12.20]Epoch 73/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=12.20]Epoch 73/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=12.20]
-Epoch 74/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 74/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=12.08]Epoch 74/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=12.08]Epoch 74/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=12.10]Epoch 74/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=12.10]Epoch 74/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=12.10]
-Epoch 75/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 75/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=11.59]Epoch 75/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=11.59]Epoch 75/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=11.85]Epoch 75/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=11.85]Epoch 75/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=11.85]
-Epoch 76/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 76/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=11.13]Epoch 76/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=11.13]Epoch 76/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=12.11]Epoch 76/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=12.11]Epoch 76/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=12.11]
-Epoch 77/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 77/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=12.02]Epoch 77/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=12.02]Epoch 77/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=11.82]Epoch 77/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=11.82]Epoch 77/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=11.82]
-Epoch 78/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 78/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=11.65]Epoch 78/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=11.65]Epoch 78/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=11.56]Epoch 78/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=11.56]Epoch 78/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=11.56]
-Epoch 79/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 79/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=11.73]Epoch 79/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=11.73]Epoch 79/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=11.26]Epoch 79/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=11.26]Epoch 79/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=11.26]
-Epoch 80/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 80/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=11.38]Epoch 80/100:  50%|█████     | 1/2 [00:00<00:00,  3.65it/s, loss=11.38]Epoch 80/100:  50%|█████     | 1/2 [00:00<00:00,  3.65it/s, loss=13.08]Epoch 80/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=13.08]Epoch 80/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=13.08]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.3511 < silverman_floor=0.8465, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.8465 (stat=mean_knn_5, base=0.8465)
-Epoch 80: loss=11.9912, recon_nll=7.1237, kl_like=4.8675, val_loss=13.2126
-Epoch 81/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 81/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=11.93]Epoch 81/100:  50%|█████     | 1/2 [00:00<00:00,  3.60it/s, loss=11.93]Epoch 81/100:  50%|█████     | 1/2 [00:00<00:00,  3.60it/s, loss=11.10]Epoch 81/100: 100%|██████████| 2/2 [00:00<00:00,  3.64it/s, loss=11.10]Epoch 81/100: 100%|██████████| 2/2 [00:00<00:00,  3.63it/s, loss=11.10]
-Epoch 82/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 82/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=11.12]Epoch 82/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=11.12]Epoch 82/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=11.46]Epoch 82/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=11.46]Epoch 82/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=11.46]
-Epoch 83/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 83/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=10.58]Epoch 83/100:  50%|█████     | 1/2 [00:00<00:00,  3.62it/s, loss=10.58]Epoch 83/100:  50%|█████     | 1/2 [00:00<00:00,  3.62it/s, loss=12.52]Epoch 83/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=12.52]Epoch 83/100: 100%|██████████| 2/2 [00:00<00:00,  3.64it/s, loss=12.52]
-Epoch 84/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 84/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=11.19]Epoch 84/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=11.19]Epoch 84/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=11.29]Epoch 84/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=11.29]Epoch 84/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=11.29]
-Epoch 85/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 85/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=11.35]Epoch 85/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=11.35]Epoch 85/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=10.81]Epoch 85/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=10.81]Epoch 85/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=10.81]
-Epoch 86/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 86/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=10.31]Epoch 86/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=10.31]Epoch 86/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=11.43]Epoch 86/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=11.43]Epoch 86/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=11.43]
-Epoch 87/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 87/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=10.34]Epoch 87/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=10.34]Epoch 87/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=11.41]Epoch 87/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=11.41]Epoch 87/100: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s, loss=11.41]
-Epoch 88/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 88/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=10.93]Epoch 88/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=10.93]Epoch 88/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=10.82]Epoch 88/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=10.82]Epoch 88/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=10.82]
-Epoch 89/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 89/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=10.60]Epoch 89/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=10.60]Epoch 89/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=9.98] Epoch 89/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=9.98]Epoch 89/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=9.98]
-Epoch 90/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 90/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=10.11]Epoch 90/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=10.11]Epoch 90/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=10.27]Epoch 90/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=10.27]Epoch 90/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=10.27]
-[RHVAE BASELINE] T floor activated: knn_candidate=0.3143 < silverman_floor=0.8174, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.8174 (stat=mean_knn_5, base=0.8174)
-Epoch 90: loss=10.1673, recon_nll=5.8239, kl_like=4.3435, val_loss=12.5802
-Epoch 91/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 91/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=10.47]Epoch 91/100:  50%|█████     | 1/2 [00:00<00:00,  3.59it/s, loss=10.47]Epoch 91/100:  50%|█████     | 1/2 [00:00<00:00,  3.59it/s, loss=10.94]Epoch 91/100: 100%|██████████| 2/2 [00:00<00:00,  3.63it/s, loss=10.94]Epoch 91/100: 100%|██████████| 2/2 [00:00<00:00,  3.62it/s, loss=10.94]
-Epoch 92/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 92/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=10.43]Epoch 92/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=10.43]Epoch 92/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=11.18]Epoch 92/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=11.18]Epoch 92/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=11.18]
-Epoch 93/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 93/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=10.61]Epoch 93/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=10.61]Epoch 93/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=10.13]Epoch 93/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=10.13]Epoch 93/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=10.13]
-Epoch 94/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 94/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=10.08]Epoch 94/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=10.08]Epoch 94/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=10.42]Epoch 94/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=10.42]Epoch 94/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=10.42]
-Epoch 95/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 95/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=9.98]Epoch 95/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=9.98]Epoch 95/100:  50%|█████     | 1/2 [00:00<00:00,  3.69it/s, loss=9.92]Epoch 95/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=9.92]Epoch 95/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=9.92]
-Epoch 96/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 96/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=9.80]Epoch 96/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=9.80]Epoch 96/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=10.41]Epoch 96/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=10.41]Epoch 96/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=10.41]
-Epoch 97/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 97/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=10.23]Epoch 97/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=10.23]Epoch 97/100:  50%|█████     | 1/2 [00:00<00:00,  3.68it/s, loss=10.77]Epoch 97/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=10.77]Epoch 97/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=10.77]
-Epoch 98/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 98/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=9.77]Epoch 98/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=9.77]Epoch 98/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=10.19]Epoch 98/100: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s, loss=10.19]Epoch 98/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=10.19]
-Epoch 99/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 99/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=9.65]Epoch 99/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=9.65]Epoch 99/100:  50%|█████     | 1/2 [00:00<00:00,  3.67it/s, loss=10.86]Epoch 99/100: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s, loss=10.86]Epoch 99/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=10.86]
-Epoch 100/100:   0%|          | 0/2 [00:00<?, ?it/s]Epoch 100/100:   0%|          | 0/2 [00:00<?, ?it/s, loss=9.63]Epoch 100/100:  50%|█████     | 1/2 [00:00<00:00,  3.65it/s, loss=9.63]Epoch 100/100:  50%|█████     | 1/2 [00:00<00:00,  3.65it/s, loss=10.43]Epoch 100/100: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s, loss=10.43]Epoch 100/100: 100%|██████████| 2/2 [00:00<00:00,  3.64it/s, loss=10.43]
-wandb: WARNING Saving files without folders. If you want to preserve subdirectories pass base_path to wandb.save, i.e. wandb.save("/mnt/folder/file.h5", base_path="/mnt")
-wandb: WARNING Tried to log to step 100 that is less than the current step 101. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
-wandb: WARNING Tried to log to step 100 that is less than the current step 101. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
-wandb: WARNING Tried to log to step 100 that is less than the current step 101. Steps must be monotonically increasing, so this data will be ignored. See https://wandb.me/define-metric to log data out of order.
-/scratch/alaforgu/miniconda3/lib/python3.12/site-packages/torch/utils/data/dataloader.py:626: UserWarning: This DataLoader will create 12 worker processes in total. Our suggested max number of worker in current system is 2, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
-  warnings.warn(
-[RHVAE BASELINE] T floor activated: knn_candidate=0.3422 < silverman_floor=0.7984, using floor
-[RHVAE BASELINE] Auto temperature set: T=0.7984 (stat=mean_knn_5, base=0.7984)
-Epoch 100: loss=9.9160, recon_nll=5.9491, kl_like=3.9668, val_loss=11.7375
-[RHVAE BASELINE] Training complete!
-[RHVAE BASELINE] Saved training curves to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N100/seed013/2026-02-23_10-57-58/training_curves.png
-[RHVAE BASELINE] Learned 100 centroids
-[RHVAE BASELINE] Saved metric to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N100/seed013/2026-02-23_10-57-58/rhvae_metric.pt
-[RHVAE BASELINE] Saved training data to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N100/seed013/2026-02-23_10-57-58/train_data.pt
--> Metric Field Tissot Indicatrices
--> Log-Determinant Landscape
--> Metric Surface (3D + contours)
--> Metric Surface (3D + contours)
--> Lost Sampler Rescue Dynamics
--> Volume-Element Rescue Dynamics
--> Geodesic vs Linear Interpolation
--> Curvature & Anisotropy Histograms
--> Distortion Map (Riemannian vs Euclidean)
-✅ RHVAE-Volume Acceptance Rate: 0.993
-
-=== Quantitative Summary ===
-Average geodesic savings (linear - geodesic): 1.386
-Prior condition mean: 690.563, on-manifold: 1.044
-Distortion ratio (mean/max): 1.857 / 5.095
-Results saved to /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N100/seed013/2026-02-23_10-57-58/analysis_results/2026-02-23_11-00-58
-[RHVAE BASELINE] Saved model to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N100/seed013/2026-02-23_10-57-58/rhvae_model.pt
-[RHVAE BASELINE] Running sampling diagnostics...
-
-============================================================
-Sampling Diagnostics for GeometryRHVAE
-============================================================
-Model path: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N100/seed013/2026-02-23_10-57-58
-Output dir: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N100/seed013/2026-02-23_10-57-58/sampling_diagnostics/2026-02-23_11-07-27
-Device: cuda
-Using provided model with 100 centroids, latent_dim=2
-
-=== FID Evaluation: gaussian ===
-compute FID between two folders
-Found 100 images in the folder /tmp/tmpxjnre33y/real
-FID real :   0%|          | 0/4 [00:00<?, ?it/s]FID real :  25%|██▌       | 1/4 [00:01<00:04,  1.38s/it]FID real :  50%|█████     | 2/4 [00:06<00:06,  3.35s/it]FID real : 100%|██████████| 4/4 [00:06<00:00,  1.30s/it]FID real : 100%|██████████| 4/4 [00:06<00:00,  1.63s/it]
-Found 1000 images in the folder /tmp/tmpxjnre33y/gen
-FID gen :   0%|          | 0/32 [00:00<?, ?it/s]FID gen :   3%|▎         | 1/32 [00:02<01:10,  2.26s/it]FID gen :   6%|▋         | 2/32 [00:02<00:37,  1.26s/it]FID gen :   9%|▉         | 3/32 [00:03<00:23,  1.24it/s]FID gen :  12%|█▎        | 4/32 [00:03<00:16,  1.71it/s]FID gen :  16%|█▌        | 5/32 [00:03<00:12,  2.15it/s]FID gen :  19%|█▉        | 6/32 [00:03<00:10,  2.53it/s]FID gen :  22%|██▏       | 7/32 [00:04<00:08,  2.87it/s]FID gen :  25%|██▌       | 8/32 [00:04<00:07,  3.16it/s]FID gen :  28%|██▊       | 9/32 [00:04<00:07,  3.23it/s]FID gen :  31%|███▏      | 10/32 [00:04<00:06,  3.41it/s]FID gen :  34%|███▍      | 11/32 [00:05<00:06,  3.49it/s]FID gen :  38%|███▊      | 12/32 [00:05<00:05,  3.78it/s]FID gen :  41%|████      | 13/32 [00:05<00:04,  4.18it/s]FID gen :  44%|████▍     | 14/32 [00:05<00:03,  4.66it/s]FID gen :  47%|████▋     | 15/32 [00:05<00:03,  5.16it/s]FID gen :  50%|█████     | 16/32 [00:06<00:02,  5.53it/s]FID gen :  53%|█████▎    | 17/32 [00:06<00:02,  5.61it/s]FID gen :  56%|█████▋    | 18/32 [00:06<00:02,  6.08it/s]FID gen :  62%|██████▎   | 20/32 [00:06<00:01,  7.94it/s]FID gen :  69%|██████▉   | 22/32 [00:06<00:00, 10.24it/s]FID gen :  75%|███████▌  | 24/32 [00:06<00:00, 12.24it/s]FID gen :  81%|████████▏ | 26/32 [00:06<00:00, 13.80it/s]FID gen :  88%|████████▊ | 28/32 [00:06<00:00, 15.07it/s]FID gen :  94%|█████████▍| 30/32 [00:07<00:00, 15.98it/s]FID gen : 100%|██████████| 32/32 [00:11<00:00,  1.24it/s]FID gen : 100%|██████████| 32/32 [00:12<00:00,  2.62it/s]
-  FID: 161.98, Acceptance: 0.000
-
-=== FID Evaluation: volume ===
-✅ RHVAE-Volume Acceptance Rate: 0.997
-compute FID between two folders
-Found 100 images in the folder /tmp/tmp6rkxo84v/real
-FID real :   0%|          | 0/4 [00:00<?, ?it/s]FID real :  25%|██▌       | 1/4 [00:01<00:03,  1.12s/it]FID real :  50%|█████     | 2/4 [00:05<00:06,  3.25s/it]FID real : 100%|██████████| 4/4 [00:06<00:00,  1.56s/it]
-Found 1000 images in the folder /tmp/tmp6rkxo84v/gen
-FID gen :   0%|          | 0/32 [00:00<?, ?it/s]FID gen :   3%|▎         | 1/32 [00:02<01:07,  2.18s/it]FID gen :   6%|▋         | 2/32 [00:02<00:37,  1.25s/it]FID gen :   9%|▉         | 3/32 [00:03<00:23,  1.23it/s]FID gen :  12%|█▎        | 4/32 [00:03<00:16,  1.71it/s]FID gen :  16%|█▌        | 5/32 [00:03<00:13,  2.03it/s]FID gen :  19%|█▉        | 6/32 [00:03<00:10,  2.38it/s]FID gen :  22%|██▏       | 7/32 [00:04<00:09,  2.71it/s]FID gen :  25%|██▌       | 8/32 [00:04<00:07,  3.01it/s]FID gen :  28%|██▊       | 9/32 [00:04<00:07,  3.24it/s]FID gen :  31%|███▏      | 10/32 [00:04<00:06,  3.52it/s]FID gen :  34%|███▍      | 11/32 [00:05<00:05,  3.98it/s]FID gen :  38%|███▊      | 12/32 [00:05<00:04,  4.46it/s]FID gen :  41%|████      | 13/32 [00:05<00:03,  5.05it/s]FID gen :  44%|████▍     | 14/32 [00:05<00:03,  5.31it/s]FID gen :  47%|████▋     | 15/32 [00:05<00:02,  5.71it/s]FID gen :  50%|█████     | 16/32 [00:05<00:02,  6.13it/s]FID gen :  53%|█████▎    | 17/32 [00:05<00:02,  6.70it/s]FID gen :  59%|█████▉    | 19/32 [00:06<00:01,  8.74it/s]FID gen :  66%|██████▌   | 21/32 [00:06<00:01, 10.96it/s]FID gen :  72%|███████▏  | 23/32 [00:06<00:00, 12.88it/s]FID gen :  78%|███████▊  | 25/32 [00:06<00:00, 14.37it/s]FID gen :  84%|████████▍ | 27/32 [00:06<00:00, 15.50it/s]FID gen :  91%|█████████ | 29/32 [00:06<00:00, 16.32it/s]FID gen :  97%|█████████▋| 31/32 [00:06<00:00, 16.99it/s]FID gen : 100%|██████████| 32/32 [00:11<00:00,  2.71it/s]
-wandb: uploading 2026-02-23_10-57-58/rhvae_metric.pt
-wandb:                                                                                
-wandb: 
-wandb: Run history:
-wandb:             analysis/avg_geodesic_savings ▁
-wandb:            analysis/distortion_ratio_mean ▁
-wandb:       analysis/metric_posterior_cond_mean ▁
-wandb:           analysis/metric_prior_cond_mean ▁
-wandb:             analysis/prior_condition_mean ▁
-wandb:                analysis/prior_logdet_mean ▁
-wandb:                analysis/prior_rhmc_accept ▁
-wandb:                 analysis/rhmc_energy_mean ▁
-wandb:                analysis/rhmc_final_energy ▁
-wandb:                                        lr ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                      metric/condition_max ▁▆▇█▇▇▆▅▄▄▃
-wandb:                     metric/condition_mean ▁▇▆████▇▇▆▆
-wandb:                       metric/eig_max_mean ▁▇▄▇███▇▇▆▅
-wandb:                       metric/eig_min_mean █▃▁▁▁▁▁▁▂▂▂
-wandb:                        metric/logdet_mean █▆▁▆▅▅▆▄▅▃▃
-wandb:               metric_tissot_condition_max ▁▆▇█▇▆▅▃▃▂▂
-wandb:              metric_tissot_condition_mean ▂▆▆█▆▆▆▄▄▃▁
-wandb:     sampling/fid/gaussian/acceptance_rate ▁
-wandb:                 sampling/fid/gaussian/fid ▁
-wandb:       sampling/fid/volume/acceptance_rate ▁
-wandb:                   sampling/fid/volume/fid ▁
-wandb:            sampling/interpolation/n_pairs ▁
-wandb:    sampling/multi_start/n_centroid_chains ▁
-wandb:    sampling/multi_start/n_gaussian_chains ▁
-wandb:        sampling/multi_start/n_grid_chains ▁
-wandb: sampling/quality/gaussian/acceptance_rate ▁
-wandb:        sampling/quality/gaussian/coverage ▁
-wandb:       sampling/quality/gaussian/diversity ▁
-wandb:       sampling/quality/gaussian/precision ▁
-wandb:          sampling/quality/gaussian/recall ▁
-wandb:   sampling/quality/volume/acceptance_rate ▁
-wandb:          sampling/quality/volume/coverage ▁
-wandb:         sampling/quality/volume/diversity ▁
-wandb:         sampling/quality/volume/precision ▁
-wandb:            sampling/quality/volume/recall ▁
-wandb:             sampling/rhmc/mean_acceptance ▁
-wandb:                               train/epoch ▁▁▁▁▁▂▂▂▂▃▃▃▃▃▃▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇▇▇███
-wandb:                         train/kinetic_nll █▃▃▂▂▂▂▂▁▂▂▁▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                             train/kl_like █▄▄▄▃▂▃▃▂▂▂▂▂▂▂▂▂▂▂▁▁▁▁▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                               train/log_q ▅▁▅▄▃▂▄▄▆▅▄▅▆▆▅▄▄▅▆▆▇▇▇▆▆█▇▆▇█▇▆▇▇▆▇▇▇▇▇
-wandb:                                train/loss █▄▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                           train/prior_nll ▁▅█▃▂▂▂▂▂▂▂▂▂▂▂▂▂▁▂▂▂▂▁▁▁▁▁▁▂▁▁▁▁▁▁▁▁▁▁▁
-wandb:                           train/recon_nll █▄▃▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                           val/kinetic_nll ███▇▇▂▁▄▄▃▃▃▂▃▂▂▃▂▄▄▂▂▂▂▂▃▄▁▂▃▂▃▂▂▃▂▃▂▂▂
-wandb:                               val/kl_like █▇▁▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                                 val/log_q ▂▃▃▁▄▂▁▂▁▃▁▃▄▄▄▆▄▂▁▂▁▃▄▇▆▆▆▄▇▆▇█▆▅█▅▃▅▄▅
-wandb:                                  val/loss █▅▄▃▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                             val/prior_nll ▃█▇▄▂▂▁▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb:                             val/recon_nll █▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
-wandb: 
-wandb: Run summary:
-wandb:             analysis/avg_geodesic_savings 1.38602
-wandb:            analysis/distortion_ratio_mean 1.8574
-wandb:       analysis/metric_posterior_cond_mean 1.04399
-wandb:           analysis/metric_prior_cond_mean 690.56299
-wandb:             analysis/prior_condition_mean 316.39355
-wandb:                analysis/prior_logdet_mean -2.5327
-wandb:                analysis/prior_rhmc_accept 0.9926
-wandb:                 analysis/rhmc_energy_mean -4.45738
-wandb:                analysis/rhmc_final_energy -5.56038
-wandb:                                        lr 0.001
-wandb:                      metric/condition_max 1308.40063
-wandb:                     metric/condition_mean 632.40503
-wandb:                       metric/eig_max_mean 34.83397
-wandb:                       metric/eig_min_mean 0.10633
-wandb:                        metric/logdet_mean -0.50973
-wandb:               metric_tissot_condition_max 1252.60693
-wandb:              metric_tissot_condition_mean 350.31786
-wandb:     sampling/fid/gaussian/acceptance_rate 0
-wandb:                 sampling/fid/gaussian/fid 161.97596
-wandb:       sampling/fid/volume/acceptance_rate 0.99674
-wandb:                   sampling/fid/volume/fid 82.49767
-wandb:            sampling/interpolation/n_pairs 4
-wandb:    sampling/multi_start/n_centroid_chains 6
-wandb:    sampling/multi_start/n_gaussian_chains 3
-wandb:        sampling/multi_start/n_grid_chains 4
-wandb: sampling/quality/gaussian/acceptance_rate 0
-wandb:        sampling/quality/gaussian/coverage 0.22
-wandb:       sampling/quality/gaussian/diversity 1.74948
-wandb:       sampling/quality/gaussian/precision 0.038
-wandb:          sampling/quality/gaussian/recall 0.51
-wandb:   sampling/quality/volume/acceptance_rate 0.98988
-wandb:          sampling/quality/volume/coverage 0.85
-wandb:         sampling/quality/volume/diversity 4.77963
-wandb:         sampling/quality/volume/precision 0.23
-wandb:            sampling/quality/volume/recall 1
-wandb:             sampling/rhmc/mean_acceptance 0.9975
-wandb:                               train/epoch 100
-wandb:                         train/kinetic_nll -1.74999
-wandb:                             train/kl_like 3.96684
-wandb:                               train/log_q 0.28048
-wandb:                                train/loss 9.91597
-wandb:                           train/prior_nll 5.43634
-wandb:                           train/recon_nll 5.94913
-wandb:                           val/kinetic_nll -1.39999
-wandb:                               val/kl_like 3.91083
-wandb:                                 val/log_q 0.22744
-wandb:                                  val/loss 11.73755
-wandb:                             val/prior_nll 5.08338
-wandb:                             val/recon_nll 7.82672
-wandb: 
-wandb: 🚀 View run geom_mahalanobis_ap1.0959864113997024_kp1.0_attr1_ns125_mf100_seed13 at: https://wandb.ai/antoine-laforgue-mines-paris-alumni/RHVAE-baseline/runs/hf5kyvfq
-wandb: ⭐️ View project at: https://wandb.ai/antoine-laforgue-mines-paris-alumni/RHVAE-baseline
-wandb: Synced 5 W&B file(s), 82 media file(s), 0 artifact file(s) and 1 other file(s)
-wandb: Find logs at: ./wandb/run-20260223_105759-hf5kyvfq/logs
-  FID: 82.50, Acceptance: 0.997
-
-=== Multi-Start Sampling: Near Centroids ===
-=== Multi-Start Sampling: Gaussian Off-Manifold ===
-=== Multi-Start Sampling: Grid ===
-
-=== Interpolation Comparison ===
-  Pair 1/4
-  Pair 2/4
-  Pair 3/4
-  Pair 4/4
-
-=== Quality Metrics ===
-
-  gaussian:
-    Diversity: 1.749
-    Coverage: 0.220
-    Precision: 0.038
-    Recall: 0.510
-
-  volume:
-✅ RHVAE-Volume Acceptance Rate: 0.990
-    Diversity: 4.780
-    Coverage: 0.850
-    Precision: 0.230
-    Recall: 1.000
-
-=== RHMC Chain Diagnostics ===
-  Chain 1/4
-  Chain 2/4
-  Chain 3/4
-  Chain 4/4
-  Mean acceptance rate: 0.998
-
-============================================================
-Results saved to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N100/seed013/2026-02-23_10-57-58/sampling_diagnostics/2026-02-23_11-07-27
-============================================================
-[RHVAE BASELINE] Sampling diagnostics complete.
-[RHVAE BASELINE] Saved history to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N100/seed013/2026-02-23_10-57-58/training_history.pt
-
-[RHVAE BASELINE] All outputs saved to: /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N100/seed013/2026-02-23_10-57-58
-[train_missing] /scratch/alaforgu/miniconda3/bin/python scripts/run_pythae_rhvae_baseline.py --epochs 100 --batch_size 64 --lr 0.001 --seed 13 --output_dir /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N050/seed013 --num_sequences 63 --frame_mode t0 --latent_dim 2 --n_centroids 100 --regularization 0.01 --vis_every 10 --analysis_rhmc_sampler volume --sampling_fid_samples 1000 --sampling_quality_samples 500 --sampling_n_chains 4 --sampling_chain_length 100 --max_frames 50 --auto_temperature --auto_temperature_stat mean_knn_5 --auto_temperature_every 10 --temperature_scale 1.0 --rhvae_variant geometry --use_attractor --kernel_type mahalanobis --atom_norm trace --atom_power 1.0959864113997024 --kernel_power 1.0 --precision_jitter 0.01 --attractor_smoothness soft --attractor_metric mahalanobis --attractor_use_det --attractor_gamma 7.624554217806352 --attractor_k_nearest 1 --attractor_bias_energy 18.0 --void_threshold 1.2 --void_weight_threshold -1.0 --void_decay_type invquad --void_decay_scale 8.87131893173153 --void_decay_power 1.7447710342008058 --void_decay_softplus_k 5.0 --radial_stretch 9.252860449508804 --transition_steepness 7.276725930229776 --void_eigshape_mode det_preserving_spectral --void_eigshape_alpha_min 0.8 --void_eigshape_power -1.2 --void_eigshape_eig_floor 1e-8 --wandb_name_mode auto --wandb_run_name low_data_aniso_N050_seed013
-[train_missing] /scratch/alaforgu/miniconda3/bin/python scripts/run_pythae_rhvae_baseline.py --epochs 100 --batch_size 64 --lr 0.001 --seed 13 --output_dir /scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/outputs/low_data_models/ellipses_auto_scaling_v6/aniso/N100/seed013 --num_sequences 125 --frame_mode t0 --latent_dim 2 --n_centroids 100 --regularization 0.01 --vis_every 10 --analysis_rhmc_sampler volume --sampling_fid_samples 1000 --sampling_quality_samples 500 --sampling_n_chains 4 --sampling_chain_length 100 --max_frames 100 --auto_temperature --auto_temperature_stat mean_knn_5 --auto_temperature_every 10 --temperature_scale 1.0 --rhvae_variant geometry --use_attractor --kernel_type mahalanobis --atom_norm trace --atom_power 1.0959864113997024 --kernel_power 1.0 --precision_jitter 0.01 --attractor_smoothness soft --attractor_metric mahalanobis --attractor_use_det --attractor_gamma 7.624554217806352 --attractor_k_nearest 1 --attractor_bias_energy 18.0 --void_threshold 1.2 --void_weight_threshold -1.0 --void_decay_type invquad --void_decay_scale 8.87131893173153 --void_decay_power 1.7447710342008058 --void_decay_softplus_k 5.0 --radial_stretch 9.252860449508804 --transition_steepness 7.276725930229776 --void_eigshape_mode det_preserving_spectral --void_eigshape_alpha_min 0.8 --void_eigshape_power -1.2 --void_eigshape_eig_floor 1e-8 --wandb_name_mode auto --wandb_run_name low_data_aniso_N100_seed013
-[train_missing] complete

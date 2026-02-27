@@ -21,25 +21,15 @@ sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from src.models.rhvae_geometry import GeometryRHVAE, GeometryRHVAEConfig
-from src.models.samplers.hmc_sampler import (
     RiemannianHMCSampler,
-    GeodesicHMCSampler,
-    RHVAEVolumeElementHMCSampler,
     VolumeElementRiemannianHMCSampler,
-    RHVAELogDetHMCSampler,
-    DualRiemannianHMCSampler,
 )
 from src.utils.metric_helpers import load_metric_bundle
 
 
 SAMPLERS: dict[str, Any] = {
     "riemannian": RiemannianHMCSampler,
-    "geodesic": GeodesicHMCSampler,
-    "volume": RHVAEVolumeElementHMCSampler,
     "volume_riemannian": VolumeElementRiemannianHMCSampler,
-    "volume_det": RHVAELogDetHMCSampler,
-    "volume_riemannian_det": GeodesicHMCSampler,
-    "dual_riemannian": DualRiemannianHMCSampler,
     "hybrid_volume_mix": None,
 }
 
@@ -78,7 +68,7 @@ class HybridVolumeMixSampler:
         self.hybrid_rescue_warmup_steps = max(0, int(hybrid_rescue_warmup_steps))
         self.last_acceptance_rate = float("nan")
 
-        self.explore_sampler = RHVAEVolumeElementHMCSampler(
+        self.explore_sampler = VolumeElementRiemannianHMCSampler(
             model,
             mcmc_steps_nbr=mcmc_steps_nbr,
             n_lf=n_lf,
@@ -86,6 +76,7 @@ class HybridVolumeMixSampler:
             beta_zero=beta_zero,
             exact=exact,
             volume_power=volume_power,
+            use_dual_metric=False,
         )
         self.rescue_sampler = VolumeElementRiemannianHMCSampler(
             model,
@@ -321,12 +312,9 @@ def _compute_hamiltonian(sampler: Any, z: torch.Tensor, rho: torch.Tensor) -> to
 def _compute_kinetic(sampler: Any, z: torch.Tensor, rho: torch.Tensor) -> torch.Tensor:
     if bool(getattr(sampler, "is_hybrid_mix", False)):
         sampler = sampler.explore_sampler
-    if isinstance(sampler, (RiemannianHMCSampler, GeodesicHMCSampler, VolumeElementRiemannianHMCSampler)):
+    if isinstance(sampler, (RiemannianHMCSampler, VolumeElementRiemannianHMCSampler)):
         G_inv = sampler.model.G_inv(z)
         return 0.5 * torch.einsum("bi,bij,bj->b", rho, G_inv, rho)
-    if isinstance(sampler, DualRiemannianHMCSampler):
-        G = sampler.model.G(z)
-        return 0.5 * torch.einsum("bi,bij,bj->b", rho, G, rho)
     return 0.5 * torch.sum(rho * rho, dim=1)
 
 

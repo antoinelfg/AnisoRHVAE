@@ -33,11 +33,7 @@ sys.path.insert(0, str(ROOT_DIR))
 from src.models.rhvae_geometry import GeometryRHVAE, GeometryRHVAEConfig
 from src.models.samplers.hmc_sampler import (
     RiemannianHMCSampler,
-    GeodesicHMCSampler,
-    RHVAEVolumeElementHMCSampler,
     VolumeElementRiemannianHMCSampler,
-    RHVAELogDetHMCSampler,
-    DualRiemannianHMCSampler,
 )
 from src.utils.metric_helpers import load_metric_bundle
 
@@ -1092,23 +1088,7 @@ def _build_rhmc_sampler(
     fp_steps: int = 15,
     fp_damping: float = 0.72,
 ):
-    if sampler_name == "geodesic":
-        return GeodesicHMCSampler(
-            model,
-            mcmc_steps_nbr=mcmc_steps,
-            n_lf=n_lf,
-            eps_lf=eps_lf,
-            beta_zero=beta_zero,
-            include_metropolis=True,
-        )
-    if sampler_name == "volume":
-        return RHVAEVolumeElementHMCSampler(
-            model,
-            mcmc_steps_nbr=mcmc_steps,
-            n_lf=n_lf,
-            eps_lf=eps_lf,
-            beta_zero=beta_zero,
-        )
+
     if sampler_name == "volume_riemannian":
         sampler = VolumeElementRiemannianHMCSampler(
             model,
@@ -1128,31 +1108,7 @@ def _build_rhmc_sampler(
         # Not a constructor arg for this sampler class; keep compatibility by setting the attribute.
         sampler.momentum_persist = float(momentum_persist)
         return sampler
-    if sampler_name == "volume_det":
-        return RHVAELogDetHMCSampler(
-            model,
-            mcmc_steps_nbr=mcmc_steps,
-            n_lf=n_lf,
-            eps_lf=eps_lf,
-            beta_zero=beta_zero,
-        )
-    if sampler_name == "volume_riemannian_det":
-        return GeodesicHMCSampler(
-            model,
-            mcmc_steps_nbr=mcmc_steps,
-            n_lf=n_lf,
-            eps_lf=eps_lf,
-            beta_zero=beta_zero,
-            include_metropolis=True,
-        )
-    if sampler_name == "dual_riemannian":
-        return DualRiemannianHMCSampler(
-            model,
-            mcmc_steps_nbr=mcmc_steps,
-            n_lf=n_lf,
-            eps_lf=eps_lf,
-            beta_zero=beta_zero,
-        )
+
     return RiemannianHMCSampler(
         model,
         mcmc_steps_nbr=mcmc_steps,

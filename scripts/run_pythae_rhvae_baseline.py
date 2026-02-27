@@ -920,6 +920,24 @@ def main():
             "attractor_bias_energy": 18.0,
             "rhvae_variant": "geometry",
         },
+        "physics": {
+            "kernel_type": "mahalanobis",
+            "atom_norm": "trace",
+            "atom_power": 1.0959864113997024,
+            "kernel_power": 1.0,
+            "precision_jitter": 0.01,
+            "void_weight_threshold": -1.0,
+            "void_decay_type": "invquad",
+            "void_decay_softplus_k": 5.0,
+            "use_attractor": True,
+            "attractor_smoothness": "soft",
+            "attractor_metric": "mahalanobis",
+            "attractor_use_det": True,
+            "attractor_k_nearest": 1,
+            "attractor_bias_energy": 18.0,
+            "rhvae_variant": "geometry",
+            "use_physics_init": True,
+        },
     }
     parser = argparse.ArgumentParser()
     parser.add_argument('--latent_dim', type=int, default=2)
@@ -991,6 +1009,7 @@ def main():
         default=1.0,
         help='Apply void eigenshape only where alpha >= threshold.',
     )
+    parser.add_argument('--use_physics_init', action='store_true', help='Use from_physics to derive hyperparameters.')
     parser.add_argument(
         '--void_eigshape_power',
         type=float,
@@ -1296,7 +1315,10 @@ def main():
             rhmc_adaptive_min_step_scale=args.rhmc_adaptive_min_step_scale,
             atom_scale=args.atom_scale,
         )
-    rhvae_config = config_cls(**config_kwargs)
+    if getattr(args, "use_physics_init", False) and use_geometry:
+        rhvae_config = config_cls.from_physics(**config_kwargs)
+    else:
+        rhvae_config = config_cls(**config_kwargs)
 
     print(
         "[RHVAE BASELINE] RHVAE config: "

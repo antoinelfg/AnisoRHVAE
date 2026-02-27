@@ -57,12 +57,7 @@ sys.path.insert(0, str(ROOT_DIR / "src"))
 from src.models.rhvae_geometry import GeometryRHVAE, GeometryRHVAEConfig
 from src.models.samplers.hmc_sampler import (
     RiemannianHMCSampler,
-    GeodesicHMCSampler,
-    RHVAEVolumeElementHMCSampler,
     VolumeElementRiemannianHMCSampler,
-    RHVAELogDetHMCSampler,
-    DualRiemannianHMCSampler,
-    ManifoldAttractionHMCSampler,
 )
 from src.utils.metric_helpers import load_metric_bundle
 
@@ -109,66 +104,79 @@ def run_hmc_chain(
     chain_length: int,
     n_lf: int,
     eps_lf: float,
-) -> tuple[np.ndarray, np.ndarray, float]:
-    """Run a single Metropolis-corrected chain from a starting point."""
+) -> tuple[np.ndarray, np.ndarray, float, dict[str, int]]:
+    """Run a single Metropolis-corrected chain from a starting point with error tracking."""
     z = start_z.clone().detach().requires_grad_(True)
     chain = [z.detach().cpu().squeeze().numpy()]
     energies: list[float] = []
     accept_count = 0
+    errors = {"linalg_errors": 0, "divergences": 0}
 
     for _ in range(chain_length):
-        rho = sampler._initialize_momentum(z)
-        with torch.no_grad():
-            if hasattr(sampler, "_compute_hamiltonian"):
-                H0 = sampler._compute_hamiltonian(z, rho)
-            elif hasattr(sampler, "_hamiltonian"):
-                H0 = sampler._hamiltonian(z, rho)
-            else:
-                H0 = torch.zeros(1, device=z.device)
-
-        z_prop = z.clone()
-        rho_prop = rho.clone()
-        use_tempering = (
-            (not bool(getattr(sampler, "exact", False)))
-            and hasattr(sampler, "_tempering")
-            and hasattr(sampler, "beta_zero_sqrt")
-        )
-        beta_sqrt_old = sampler.beta_zero_sqrt if use_tempering else None
-
-        for k in range(n_lf):
-            if hasattr(sampler, "_generalized_leapfrog_step"):
-                z_prop, rho_prop = sampler._generalized_leapfrog_step(z_prop, rho_prop, eps_lf)
-            elif hasattr(sampler, "_leapfrog"):
-                z_prop, rho_prop = sampler._leapfrog(z_prop, rho_prop, eps_lf)
-
-            if use_tempering and beta_sqrt_old is not None:
-                beta_sqrt = sampler._tempering(k + 1, n_lf, sampler.beta_zero_sqrt)
-                if torch.is_tensor(beta_sqrt):
-                    beta_sqrt = beta_sqrt.to(z.device)
+        try:
+            rho = sampler._initialize_momentum(z)
+            with torch.no_grad():
+                if hasattr(sampler, "_compute_hamiltonian"):
+                    H0 = sampler._compute_hamiltonian(z, rho)
+                elif hasattr(sampler, "_hamiltonian"):
+                    H0 = sampler._hamiltonian(z, rho)
                 else:
-                    beta_sqrt = torch.tensor(beta_sqrt, device=z.device)
-                rho_prop = (beta_sqrt_old / beta_sqrt) * rho_prop
-                beta_sqrt_old = beta_sqrt
+                    H0 = torch.zeros(1, device=z.device)
 
-        with torch.no_grad():
-            if hasattr(sampler, "_compute_hamiltonian"):
-                H1 = sampler._compute_hamiltonian(z_prop, rho_prop)
-            elif hasattr(sampler, "_hamiltonian"):
-                H1 = sampler._hamiltonian(z_prop, rho_prop)
-            else:
-                H1 = torch.zeros(1, device=z.device)
+            z_prop = z.clone()
+            rho_prop = rho.clone()
+            use_tempering = (
+                (not bool(getattr(sampler, "exact", False)))
+                and hasattr(sampler, "_tempering")
+                and hasattr(sampler, "beta_zero_sqrt")
+            )
+            beta_sqrt_old = sampler.beta_zero_sqrt if use_tempering else None
 
-            alpha = torch.exp(-(H1 - H0)).clamp(max=1.0)
-            u = torch.rand_like(alpha)
-            if (u < alpha).all():
-                z = z_prop.detach().requires_grad_(True)
-                accept_count += 1
+            for k in range(n_lf):
+                if hasattr(sampler, "_generalized_leapfrog_step"):
+                    z_prop, rho_prop = sampler._generalized_leapfrog_step(z_prop, rho_prop, eps_lf)
+                elif hasattr(sampler, "_leapfrog"):
+                    z_prop, rho_prop = sampler._leapfrog(z_prop, rho_prop, eps_lf)
 
-            energies.append(H1.mean().item())
+                if use_tempering and beta_sqrt_old is not None:
+                    beta_sqrt = sampler._tempering(k + 1, n_lf, sampler.beta_zero_sqrt)
+                    if torch.is_tensor(beta_sqrt):
+                        beta_sqrt = beta_sqrt.to(z.device)
+                    else:
+                        beta_sqrt = torch.tensor(beta_sqrt, device=z.device)
+                    rho_prop = (beta_sqrt_old / beta_sqrt) * rho_prop
+                    beta_sqrt_old = beta_sqrt
+
+            with torch.no_grad():
+                if hasattr(sampler, "_compute_hamiltonian"):
+                    H1 = sampler._compute_hamiltonian(z_prop, rho_prop)
+                elif hasattr(sampler, "_hamiltonian"):
+                    H1 = sampler._hamiltonian(z_prop, rho_prop)
+                else:
+                    H1 = torch.zeros(1, device=z.device)
+
+                if torch.isnan(H1).any() or torch.isinf(H1).any():
+                    errors["divergences"] += 1
+                    # reject step automatically
+                    H1 = torch.tensor([float("inf")], device=z.device)
+                    
+                alpha = torch.exp(-(H1 - H0)).clamp(max=1.0)
+                u = torch.rand_like(alpha)
+                if (u < alpha).all():
+                    z = z_prop.detach().requires_grad_(True)
+                    accept_count += 1
+
+                energies.append(H1.mean().item())
+                
+        except torch.linalg.LinAlgError:
+            errors["linalg_errors"] += 1
+            # Step rejected natively by exception; retain old z.
+            energies.append(float("inf"))
+
         chain.append(z.detach().cpu().squeeze().numpy())
 
     acceptance = accept_count / max(chain_length, 1)
-    return np.array(chain), np.array(energies), acceptance
+    return np.array(chain), np.array(energies), acceptance, errors
 
 
 # =============================================================================
@@ -253,13 +261,7 @@ def load_model_and_centroids(
 
 SAMPLER_REGISTRY = {
     "riemannian": RiemannianHMCSampler,
-    "geodesic": GeodesicHMCSampler,
-    "volume": RHVAEVolumeElementHMCSampler,
     "volume_riemannian": VolumeElementRiemannianHMCSampler,
-    "volume_det": RHVAELogDetHMCSampler,
-    "volume_riemannian_det": GeodesicHMCSampler,
-    "dual_riemannian": DualRiemannianHMCSampler,
-    "attraction": ManifoldAttractionHMCSampler,
 }
 
 
@@ -279,8 +281,27 @@ def create_sampler(
     momentum_persist: float = 0.0,
     fp_steps: int = 15,
     fp_damping: float = 0.72,
+    use_physics_sampler_defaults: bool = False,
 ):
-    """Create a sampler by name."""
+    """Create a sampler by name. If use_physics_sampler_defaults is True, overrides 
+    hyper-parameters with theoretically rigorously derived bounds from the geometry base."""
+    # Deduce physics sampler equivalents if requested
+    if use_physics_sampler_defaults and hasattr(model, 'temperature'):
+        import math
+        T = float(model.temperature.detach().cpu().item())
+        d = float(model.latent_dim)
+        sigma = T / math.sqrt(2.0)
+        
+        eps_lf = T / 10.0
+        n_lf = 10
+        momentum_persist = sigma
+        volume_power = d
+        adaptive_min_step_scale = eps_lf
+        adaptive_max_dual_displacement = eps_lf
+        
+        print(f"  [Physics Sampler Config Applied: eps_lf={eps_lf:.4f}, "
+              f"n_lf={n_lf}, momentum_persist={momentum_persist:.4f}, volume_power={volume_power}]")
+
     if sampler_name == "gaussian":
         return None  # Will use standard Gaussian sampling
     
@@ -288,16 +309,7 @@ def create_sampler(
     if sampler_cls is None:
         raise ValueError(f"Unknown sampler: {sampler_name}. Available: {list(SAMPLER_REGISTRY.keys())}")
     
-    if sampler_name == "geodesic":
-        return sampler_cls(
-            model,
-            mcmc_steps_nbr=mcmc_steps,
-            n_lf=n_lf,
-            eps_lf=eps_lf,
-            beta_zero=beta_zero,
-            include_metropolis=True,
-        )
-    elif sampler_name == "riemannian":
+    if sampler_name == "riemannian":
         return sampler_cls(
             model,
             mcmc_steps_nbr=mcmc_steps,
@@ -354,6 +366,7 @@ def sample_latents(
     momentum_persist: float = 0.0,
     fp_steps: int = 15,
     fp_damping: float = 0.72,
+    use_physics_sampler_defaults: bool = False,
 ) -> tuple[torch.Tensor, float]:
     """
     Sample latent codes using specified sampler.
@@ -381,6 +394,7 @@ def sample_latents(
         momentum_persist=momentum_persist,
         fp_steps=fp_steps,
         fp_damping=fp_damping,
+        use_physics_sampler_defaults=use_physics_sampler_defaults,
     )
     
     # Ensure sampler's device attribute is correct
@@ -530,6 +544,7 @@ def run_fid_evaluation(
     momentum_persist: float = 0.0,
     fp_steps: int = 15,
     fp_damping: float = 0.72,
+    use_physics_sampler_defaults: bool = False,
     out_dir: Optional[Path] = None,
     wandb_run: Optional[Any] = None,
 ) -> dict[str, dict[str, float]]:
@@ -558,6 +573,7 @@ def run_fid_evaluation(
                 momentum_persist=momentum_persist,
                 fp_steps=fp_steps,
                 fp_damping=fp_damping,
+                use_physics_sampler_defaults=use_physics_sampler_defaults,
             )
             
             # Decode to images
@@ -696,6 +712,7 @@ def multi_start_sampling(
     momentum_persist: float = 0.0,
     fp_steps: int = 15,
     fp_damping: float = 0.72,
+    use_physics_sampler_defaults: bool = False,
     out_dir: Optional[Path] = None,
     wandb_run: Optional[Any] = None,
 ) -> dict[str, Any]:
@@ -738,7 +755,7 @@ def multi_start_sampling(
         )
         
         if sampler is not None:
-            chain, energies, acceptance = run_hmc_chain(
+            chain, energies, acceptance, errors = run_hmc_chain(
                 start_point, sampler, n_samples_per_start, n_lf, eps_lf
             )
             samples_tensor = torch.as_tensor(chain)
@@ -746,6 +763,7 @@ def multi_start_sampling(
                 "start": start_point.cpu(),
                 "samples": samples_tensor,
                 "acceptance": acceptance,
+                "errors": errors,
             })
     
     # 2. Random Gaussian starts
@@ -772,7 +790,7 @@ def multi_start_sampling(
         )
         
         if sampler is not None:
-            chain, energies, acceptance = run_hmc_chain(
+            chain, energies, acceptance, errors = run_hmc_chain(
                 start_point, sampler, n_samples_per_start, n_lf, eps_lf
             )
             samples_tensor = torch.as_tensor(chain)
@@ -780,6 +798,7 @@ def multi_start_sampling(
                 "start": start_point.cpu(),
                 "samples": samples_tensor,
                 "acceptance": acceptance,
+                "errors": errors,
             })
     
     # 3. Grid starts
@@ -811,10 +830,11 @@ def multi_start_sampling(
                 momentum_persist=momentum_persist,
                 fp_steps=fp_steps,
                 fp_damping=fp_damping,
+                use_physics_sampler_defaults=use_physics_sampler_defaults,
             )
             
             if sampler is not None:
-                chain, energies, acceptance = run_hmc_chain(
+                chain, energies, acceptance, errors = run_hmc_chain(
                     start_point, sampler, n_samples_per_start // 2, max(1, n_lf // 2), eps_lf
                 )
                 samples_tensor = torch.as_tensor(chain)
@@ -822,6 +842,7 @@ def multi_start_sampling(
                     "start": start_point.cpu(),
                     "samples": samples_tensor,
                     "acceptance": acceptance,
+                    "errors": errors,
                 })
     
     # Visualize
@@ -1384,6 +1405,7 @@ def run_quality_metrics(
     momentum_persist: float = 0.0,
     fp_steps: int = 15,
     fp_damping: float = 0.72,
+    use_physics_sampler_defaults: bool = False,
     out_dir: Optional[Path] = None,
     wandb_run: Optional[Any] = None,
 ) -> dict[str, dict[str, float]]:
@@ -1419,6 +1441,7 @@ def run_quality_metrics(
                 momentum_persist=momentum_persist,
                 fp_steps=fp_steps,
                 fp_damping=fp_damping,
+                use_physics_sampler_defaults=use_physics_sampler_defaults,
             )
             
             # Diversity
@@ -1520,6 +1543,7 @@ def run_rhmc_diagnostics(
     momentum_persist: float = 0.0,
     fp_steps: int = 15,
     fp_damping: float = 0.72,
+    use_physics_sampler_defaults: bool = False,
     out_dir: Optional[Path] = None,
     wandb_run: Optional[Any] = None,
 ) -> dict[str, Any]:
@@ -1552,17 +1576,20 @@ def run_rhmc_diagnostics(
             momentum_persist=momentum_persist,
             fp_steps=fp_steps,
             fp_damping=fp_damping,
+            use_physics_sampler_defaults=use_physics_sampler_defaults,
         )
         
         if sampler is None:
             continue
         
-        chain, chain_energies, acceptance = run_hmc_chain(
+        chain, chain_energies, acceptance, errors = run_hmc_chain(
             z0, sampler, chain_length, n_lf, eps_lf
         )
         chains.append(chain)
         energies.append(chain_energies)
         acceptance_rates.append(acceptance)
+        # We could technically aggregate errors here, but for now just returning them
+        print(f"    Errors: {errors}")
     
     results = {
         "chains": chains,
@@ -1694,6 +1721,7 @@ def run_sampling_diagnostics(
     momentum_persist: float = 0.0,
     fp_steps: int = 15,
     fp_damping: float = 0.72,
+    use_physics_sampler_defaults: bool = False,
 ) -> dict[str, Any]:
     """
     Run comprehensive sampling diagnostics.
@@ -1770,6 +1798,7 @@ def run_sampling_diagnostics(
             momentum_persist=momentum_persist,
             fp_steps=fp_steps,
             fp_damping=fp_damping,
+            use_physics_sampler_defaults=use_physics_sampler_defaults,
             out_dir=out_dir,
             wandb_run=wandb_run,
         )
@@ -1793,6 +1822,7 @@ def run_sampling_diagnostics(
             momentum_persist=momentum_persist,
             fp_steps=fp_steps,
             fp_damping=fp_damping,
+            use_physics_sampler_defaults=use_physics_sampler_defaults,
             out_dir=out_dir,
             wandb_run=wandb_run,
         )
@@ -1833,6 +1863,7 @@ def run_sampling_diagnostics(
             momentum_persist=momentum_persist,
             fp_steps=fp_steps,
             fp_damping=fp_damping,
+            use_physics_sampler_defaults=use_physics_sampler_defaults,
             out_dir=out_dir,
             wandb_run=wandb_run,
         )
@@ -1856,6 +1887,7 @@ def run_sampling_diagnostics(
             momentum_persist=momentum_persist,
             fp_steps=fp_steps,
             fp_damping=fp_damping,
+            use_physics_sampler_defaults=use_physics_sampler_defaults,
             out_dir=out_dir,
             wandb_run=wandb_run,
         )
@@ -2009,6 +2041,7 @@ def main():
     parser.add_argument("--momentum_persist", type=float, default=0.0)
     parser.add_argument("--fp_steps", type=int, default=15, help="Fixed-point iterations for implicit RHMC.")
     parser.add_argument("--fp_damping", type=float, default=0.72, help="Fixed-point damping factor.")
+    parser.add_argument("--physics_sampler", action="store_true", help="Automatically deduce sampler parameters from temperature and latent dimension.")
     
     # WandB
     parser.add_argument("--wandb_project", type=str, default=None, help="WandB project")
@@ -2087,6 +2120,7 @@ def main():
         momentum_persist=args.momentum_persist,
         fp_steps=args.fp_steps,
         fp_damping=args.fp_damping,
+        use_physics_sampler_defaults=args.physics_sampler,
     )
     
     # Finish WandB

@@ -1,6 +1,7 @@
 outputs/
 results/
 configs/
+scripts/
 *.pt
 *.png
 *.csv
@@ -10,4 +11,5 @@ __pycache__/
 logs/
 data/external/
 data/processed/
-assets/cache/
+assets/
+pytest.ini

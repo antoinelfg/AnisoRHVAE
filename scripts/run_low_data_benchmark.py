@@ -33,7 +33,7 @@ from pythae.models.rhvae.rhvae_utils import create_inverse_metric, create_metric
 from scripts.sampling_diagnostics import geodesic_interpolation
 from src.models.model_adapter import ModelAdapter
 from src.models.rhvae_geometry import GeometryRHVAE, GeometryRHVAEConfig
-from src.models.samplers.hmc_sampler import RHVAEVolumeElementHMCSampler, VolumeElementRiemannianHMCSampler
+from src.models.samplers.hmc_sampler import RiemannianHMCSampler, VolumeElementRiemannianHMCSampler
 from src.utils.low_data_io import load_split_tensor, load_subset_indices, subset_from_indices
 from src.utils.low_data_metrics import (
     augmentation_eval,
@@ -307,17 +307,7 @@ class RHVAEAdapter:
                     adaptive_max_dual_displacement=float(cfg.get("adaptive_max_dual_displacement", 0.75)),
                     adaptive_min_step_scale=float(cfg.get("adaptive_min_step_scale", 0.05)),
                 )
-            elif sampler_name == "volume":
-                sampler = RHVAEVolumeElementHMCSampler(
-                    self.model,
-                    mcmc_steps_nbr=mcmc_steps,
-                    n_lf=n_lf,
-                    eps_lf=eps_lf,
-                    beta_zero=beta_zero,
-                    volume_power=volume_power,
-                )
-                if hasattr(sampler, "momentum_persist"):
-                    sampler.momentum_persist = float(cfg.get("momentum_persist", 0.0))
+
             else:
                 raise ValueError(f"Unsupported RHVAE sampler_name={sampler_name}")
             z = sampler.sample(int(n_samples))

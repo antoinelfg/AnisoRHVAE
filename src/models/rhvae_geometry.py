@@ -101,36 +101,39 @@ class GeometryRHVAEConfig(RHVAEConfig):
         cls,
         *,
         temperature: float,
-        regularization: float,
-        target_anisotropy: float,
-        confidence_threshold: float,
+        latent_dim: int,
         **kwargs,
     ) -> "GeometryRHVAEConfig":
         if temperature <= 0:
             raise ValueError("temperature must be > 0")
-        if confidence_threshold <= 0 or confidence_threshold >= 1:
-            raise ValueError("confidence_threshold must be in (0, 1)")
-        if target_anisotropy <= 1:
-            raise ValueError("target_anisotropy must be > 1")
+        if latent_dim <= 0:
+            raise ValueError("latent_dim must be > 0")
 
         temperature = float(temperature)
-        regularization = float(regularization)
-        target_anisotropy = float(target_anisotropy)
-        confidence_threshold = float(confidence_threshold)
+        latent_dim = int(latent_dim)
 
-        r0 = temperature * math.sqrt(-math.log(confidence_threshold))
-        radial_stretch = regularization * (target_anisotropy - 1.0)
+        import scipy.stats
+
+        sigma = temperature / math.sqrt(2.0)
+        chi2_thresh = scipy.stats.chi2.ppf(0.9973, df=latent_dim)
+        r0 = sigma * math.sqrt(chi2_thresh)
+
+        gamma = 2.0 / (temperature**2)
+        kappa = (2.0 * math.pi) / (temperature * math.sqrt(3.0))
+        p = latent_dim - 0.25
+        s = r0 + gamma
+        beta_long = gamma + (latent_dim / 2.0)
 
         params = {
             "temperature": temperature,
-            "regularization": regularization,
-            "radial_stretch": radial_stretch,
-            "void_weight_threshold": confidence_threshold,
+            "latent_dim": latent_dim,
             "void_threshold": r0 / temperature,
-            "target_anisotropy": target_anisotropy,
-            "void_decay_scale": 1.0,
-            "void_decay_power": 2.0,
-            "void_decay_softplus_k": 5.0,
+            "attractor_gamma": gamma,
+            "transition_steepness": kappa,
+            "void_decay_power": p,
+            "void_decay_scale": s,
+            "radial_stretch": beta_long,
+            "void_weight_threshold": -1.0,
         }
         params.update(kwargs)
         return cls(**params)
@@ -230,6 +233,33 @@ class GeometryRHVAE(RHVAE):
         if self.attractor_metric == "mahalanobis" or self.attractor_use_det:
             self._update_attractor_precisions(self.M_tens)
         self._refresh_metric_hooks()
+
+    def update_physics_parameters(self) -> None:
+        """Dynamically recompute theoretically derived geometry equations when temperature shifts."""
+        if not hasattr(self, "temperature"):
+            return
+            
+        import scipy.stats
+        temperature = float(self.temperature.detach().cpu().item())
+        latent_dim = int(self.latent_dim)
+        
+        sigma = temperature / math.sqrt(2.0)
+        chi2_thresh = scipy.stats.chi2.ppf(0.9973, df=latent_dim)
+        r0 = sigma * math.sqrt(chi2_thresh)
+
+        gamma = 2.0 / (temperature**2)
+        kappa = (2.0 * math.pi) / (temperature * math.sqrt(3.0))
+        p = latent_dim - 0.25
+        s = r0 + gamma
+        beta_long = gamma + (latent_dim / 2.0)
+
+        self.void_threshold = r0 / temperature
+        self.attractor_gamma = gamma
+        self.transition_steepness = kappa
+        self.void_decay_power = p
+        self.void_decay_scale = s
+        self.radial_stretch = beta_long
+        self.void_weight_threshold = -1.0
 
     def _refresh_metric_hooks(self) -> None:
         if self.use_attractor or self.kernel_type != "isotropic":
