@@ -1,0 +1,5 @@
+name: ellipses
+subset_n: 50
+n_centroids: 50
+max_centroids: 50
+training_base_config: configs/run_rhvae_isotropic_n50_sampler_strict.yaml

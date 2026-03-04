@@ -53,12 +53,13 @@ def load_geometry_model(model_path: Path, device: torch.device) -> GeometryRHVAE
 
 def parse_dims(text: str, latent_dim: int) -> tuple[int, int]:
     if text.strip().lower() == "auto":
-        return 0, 1
+        # Always pick the first two components for 2D slices
+        return 0, min(1, latent_dim - 1) if latent_dim > 1 else 0
     parts = [p.strip() for p in text.split(",")]
     if len(parts) != 2:
         raise ValueError("--dims must be 'i,j' or 'auto'")
     d0, d1 = int(parts[0]), int(parts[1])
-    if d0 == d1:
+    if d0 == d1 and latent_dim > 1:
         raise ValueError("--dims indices must differ")
     if not (0 <= d0 < latent_dim and 0 <= d1 < latent_dim):
         raise ValueError(f"--dims out of range for latent_dim={latent_dim}")

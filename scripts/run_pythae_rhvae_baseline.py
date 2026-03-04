@@ -237,8 +237,10 @@ def visualize_reconstructions(model, data, epoch, output_dir, wandb, device, n_s
         model_output = model(model_input)
         recon = model_output.recon_x.detach()
     
-    # Reshape to images (assuming flattened 64x64)
-    img_size = 64
+    # Reshape to images (assuming flattened square images)
+    input_dim = samples.shape[1]
+    import math
+    img_size = int(math.sqrt(input_dim))
     samples_img = samples.detach().view(n_samples, 1, img_size, img_size).cpu()
     recon_img = recon.view(n_samples, 1, img_size, img_size).cpu()
     
@@ -347,7 +349,12 @@ def visualize_metric_field(model, epoch, output_dir, wandb, device, grid_res=40)
     grid_pts = np.stack([X.ravel(), Y.ravel()], axis=1)
     
     z_grid = torch.tensor(grid_pts, dtype=torch.float32, device=device)
-    
+    if model.latent_dim > 2:
+        pad = torch.zeros(z_grid.shape[0], model.latent_dim - 2, device=device)
+        z_grid = torch.cat([z_grid, pad], dim=1)
+    elif model.latent_dim < 2:
+        z_grid = z_grid[:, :model.latent_dim]
+            
     # Compute metric
     with torch.no_grad():
         G_grid = model.G(z_grid)
@@ -1003,6 +1010,13 @@ def main():
         choices=['none', 'det_preserving_spectral'],
         help='Optional determinant-preserving spectral reshaping for void branch.',
     )
+    # Add dataset argument
+    parser.add_argument(
+        '--dataset',
+        type=str,
+        default='ellipses',
+        help='Which dataset to load (ellipses, rotmnist).',
+    )
     parser.add_argument(
         '--void_eigshape_alpha_min',
         type=float,
@@ -1211,53 +1225,86 @@ def main():
         print(f"[RHVAE BASELINE] WandB init failed: {e}")
         wandb = None
     
-    # Load ellipse data - same config as main experiments
-    print("[RHVAE BASELINE] Loading ellipse data...")
-    from omegaconf import OmegaConf  # pyright: ignore[reportMissingImports]
-    data_config = OmegaConf.create({
-        'num_sequences': args.num_sequences,
-        'seq_len': 8,
-        'sequence_length': 8,
-        'image_size': [64, 64],
-        'batch_size': args.batch_size,
-        'num_workers': 0,
-        'min_radius': 8,
-        'max_radius': 20,
-        'min_eccentricity': 0.0,
-        'max_eccentricity': 0.9,
-        'fix_center': True,
-        'fix_theta': True,
-        'fix_intensity': True,
-        'keep_major_axis_constant': True,
-        'keep_area_constant': False,
-        'outline_only': False,
-        'outline_width': 2,
-        'antialias': True,
-        'supersample_factor': 4,
-        'seed': args.seed,
-        'train_ratio': 0.8,
-        'val_ratio': 0.1,
-        'test_ratio': 0.1,
-    })
-    
-    data_module = EllipseSequenceDataModule(data_config)
-    
-    # Extract frames for train and val
+    # Load data
     frame_mode = args.frame_mode
-    train_data = create_frames_dataset(
-        data_module,
-        'train',
-        frame_mode=frame_mode,
-        max_frames=args.max_frames,
-        seed=args.seed,
-    )
-    val_data = create_frames_dataset(
-        data_module,
-        'val',
-        frame_mode=frame_mode,
-        max_frames=args.max_frames,
-        seed=args.seed + 1,
-    )
+    if getattr(args, "dataset", "ellipses") == "rotmnist":
+        from src.utils.low_data_io import load_split_tensor, load_subset_indices, subset_from_indices
+        print(f"[RHVAE BASELINE] Loading RotMNIST low-data subset: N={args.max_frames if args.max_frames else args.num_sequences}")
+        # Need to dynamically load the prepared rotmnist split
+        # the subset_n is carried over via max_frames in our Hydra translation
+        rotmnist_dir = PROJECT_ROOT / "data" / "processed" / "rotmnist" / "v1"
+        if not rotmnist_dir.exists():
+            import subprocess
+            print("[RHVAE BASELINE] RotMNIST not found. Running preparation script...")
+            subprocess.run([sys.executable, str(PROJECT_ROOT / "scripts" / "prepare_rotmnist_lowdata.py")], check=True)
+            
+        x_train, _ = load_split_tensor(rotmnist_dir, "train")
+        x_val, _ = load_split_tensor(rotmnist_dir, "val")
+        
+        subset_n = args.max_frames if args.max_frames is not None else 50
+        try:
+            indices_dict = load_subset_indices(rotmnist_dir, "train")
+            idx_train = indices_dict[subset_n][str(args.seed)]
+            train_data = subset_from_indices(x_train, idx_train)
+        except Exception as e:
+            print(f"[RHVAE BASELINE] Fallback exact extraction. Error: {e}")
+            g = torch.Generator().manual_seed(args.seed)
+            idx_train = torch.randperm(x_train.size(0), generator=g)[:subset_n]
+            train_data = x_train[idx_train]
+            
+        g_val = torch.Generator().manual_seed(args.seed + 1)
+        # Scale validation set down proportionally
+        val_n = max(1, int(subset_n * 0.2)) 
+        idx_val = torch.randperm(x_val.size(0), generator=g_val)[:val_n]
+        val_data = x_val[idx_val]
+        
+        # RotMNIST is 1x28x28
+        train_data = train_data.view(-1, 1, 28, 28)
+        val_data = val_data.view(-1, 1, 28, 28)
+    else:
+        print("[RHVAE BASELINE] Loading ellipse data...")
+        from omegaconf import OmegaConf  # pyright: ignore[reportMissingImports]
+        data_config = OmegaConf.create({
+            'num_sequences': args.num_sequences,
+            'seq_len': 8,
+            'sequence_length': 8,
+            'image_size': [64, 64],
+            'batch_size': args.batch_size,
+            'num_workers': 0,
+            'min_radius': 8,
+            'max_radius': 20,
+            'min_eccentricity': 0.0,
+            'max_eccentricity': 0.9,
+            'fix_center': True,
+            'fix_theta': True,
+            'fix_intensity': True,
+            'keep_major_axis_constant': True,
+            'keep_area_constant': False,
+            'outline_only': False,
+            'outline_width': 2,
+            'antialias': True,
+            'supersample_factor': 4,
+            'seed': args.seed,
+            'train_ratio': 0.8,
+            'val_ratio': 0.1,
+            'test_ratio': 0.1,
+        })
+        
+        data_module = EllipseSequenceDataModule(data_config)
+        train_data = create_frames_dataset(
+            data_module,
+            'train',
+            frame_mode=frame_mode,
+            max_frames=args.max_frames,
+            seed=args.seed,
+        )
+        val_data = create_frames_dataset(
+            data_module,
+            'val',
+            frame_mode=frame_mode,
+            max_frames=args.max_frames,
+            seed=args.seed + 1,
+        )
     
     # Flatten images for RHVAE (it expects [B, input_dim])
     input_dim = train_data.shape[1] * train_data.shape[2] * train_data.shape[3]
@@ -1267,6 +1314,12 @@ def main():
     print(f"[RHVAE BASELINE] Training data shape: {train_flat.shape}")
     if val_flat is not None:
         print(f"[RHVAE BASELINE] Validation data shape: {val_flat.shape}")
+    
+    # User Request: Adjust the number of centroids to the number of points natively
+    n_points = train_flat.shape[0]
+    capped_centroids = min(n_points, 500)
+    args.n_centroids = capped_centroids
+    args.max_centroids = capped_centroids
     
     # Create RHVAE config
     use_geometry = args.kernel_type != "isotropic" or use_attractor or args.rhvae_variant == "geometry"
@@ -1329,7 +1382,57 @@ def main():
 
     # Create model
     model_cls = GeometryRHVAE if use_geometry else RHVAE
-    model = model_cls(rhvae_config)
+    
+    if getattr(args, "dataset", "ellipses") == "rotmnist":
+        from pythae.models.nn import BaseEncoder, BaseDecoder
+        from pythae.models.base.base_utils import ModelOutput
+        import torch.nn as nn
+        
+        class CNNEncoderRotMNIST(BaseEncoder):
+            def __init__(self, config):
+                super().__init__()
+                self.input_dim = config.input_dim
+                self.latent_dim = config.latent_dim
+                self.conv = nn.Sequential(
+                    nn.Conv2d(1, 32, 4, 2, 1), nn.GroupNorm(8, 32), nn.SiLU(),
+                    nn.Conv2d(32, 64, 4, 2, 1), nn.GroupNorm(16, 64), nn.SiLU(),
+                    nn.Conv2d(64, 128, 3, 2, 0), nn.GroupNorm(32, 128), nn.SiLU(),
+                    nn.Flatten()
+                )
+                self.embedding = nn.Linear(128 * 3 * 3, self.latent_dim)
+                self.log_var = nn.Linear(128 * 3 * 3, self.latent_dim)
+                
+            def forward(self, x):
+                out = self.conv(x.view(-1, 1, 28, 28))
+                return ModelOutput(
+                    embedding=self.embedding(out),
+                    log_covariance=self.log_var(out)
+                )
+                
+        class CNNDecoderRotMNIST(BaseDecoder):
+            def __init__(self, config):
+                super().__init__()
+                self.input_dim = config.input_dim
+                self.latent_dim = config.latent_dim
+                self.fc = nn.Sequential(nn.Linear(self.latent_dim, 128 * 3 * 3), nn.SiLU())
+                self.deconv = nn.Sequential(
+                    nn.ConvTranspose2d(128, 64, 3, 2, 0), nn.GroupNorm(16, 64), nn.SiLU(),
+                    nn.ConvTranspose2d(64, 32, 4, 2, 1), nn.GroupNorm(8, 32), nn.SiLU(),
+                    nn.ConvTranspose2d(32, 1, 4, 2, 1), nn.Sigmoid()
+                )
+
+            def forward(self, z):
+                out = self.fc(z).view(-1, 128, 3, 3)
+                out = self.deconv(out)
+                return ModelOutput(reconstruction=out.view((z.shape[0],) + self.input_dim))
+
+        print("[RHVAE BASELINE] Using 3-layer CNN architecture for RotMNIST")
+        encoder = CNNEncoderRotMNIST(rhvae_config)
+        decoder = CNNDecoderRotMNIST(rhvae_config)
+        model = model_cls(rhvae_config, encoder=encoder, decoder=decoder)
+    else:
+        model = model_cls(rhvae_config)
+        
     model = model.to(device)
     
     # Train with full logging!

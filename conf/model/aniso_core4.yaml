@@ -1,0 +1,7 @@
+name: aniso_core4
+geometry_overrides:
+  # The strict core4 behavior relies on the baseline config mostly
+  # But we explicitly define our metric properties to ensure correctness
+  use_attractor: true
+  attractor_use_det: true
+  void_decay_type: invquad

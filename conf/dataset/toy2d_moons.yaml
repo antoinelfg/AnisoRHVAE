@@ -1,0 +1,5 @@
+name: toy2d_moons
+subset_n: 500
+n_centroids: 50
+max_centroids: 50
+training_base_config: configs/train_rhvae_tensor_toy2d_aniso_gravity_well_fixedT.yaml

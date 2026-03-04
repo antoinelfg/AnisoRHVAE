@@ -1,0 +1,36 @@
+dataset:
+  name: rotmnist
+  subset_n: 5000
+  n_centroids: 50
+  max_centroids: 50
+  training_base_config: configs/run_geometry_aniso_core4_n50_sampler_strict.yaml
+model:
+  name: aniso_core4
+  geometry_overrides:
+    use_attractor: true
+    attractor_use_det: true
+    void_decay_type: invquad
+sampler:
+  name: volume_riemannian
+  script_args:
+    sampler_name: volume_riemannian
+    use_dual_metric: false
+    atom_scale: 100.0
+    volume_power: 2.0
+    radial_prior_weight: 0.1
+    steps: 500
+    n_lf_inner: 10
+    eps: 0.05
+    adaptive_dual_step: true
+    adaptive_max_dual_displacement: 0.05
+    fp_steps: 15
+    void_eigshape_mode: none
+seed: 13
+wandb:
+  project: anisorhvae-neurips-benchmark
+  entity: null
+  mode: online
+  tags: []
+output_root: results/neurips_experiments
+reuse_policy: reuse_latest
+python_bin: python

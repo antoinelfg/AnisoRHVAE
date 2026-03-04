@@ -1,0 +1,5 @@
+name: isotropic
+training_base_config_override: configs/run_rhvae_isotropic_n50_sampler_strict.yaml
+geometry_overrides:
+  use_attractor: false
+  void_decay_type: none

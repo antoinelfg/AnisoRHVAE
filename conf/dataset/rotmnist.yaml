@@ -1,0 +1,9 @@
+name: rotmnist
+subset_n: 50
+n_centroids: 50
+max_centroids: 50
+# The baseline config from the original repository logic
+training_base_config: configs/run_geometry_aniso_core4_n50_sampler_strict.yaml
+# We'll compute num_sequences and max_frames dynamically in the script:
+# num_sequences = max(1, ceil(subset_n / 0.8))
+# max_frames = subset_n

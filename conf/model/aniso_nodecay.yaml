@@ -1,0 +1,5 @@
+name: aniso_nodecay
+geometry_overrides:
+  use_attractor: true
+  attractor_use_det: true
+  void_decay_type: none

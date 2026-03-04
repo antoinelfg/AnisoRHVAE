@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from src.models.rhvae_geometry import GeometryRHVAE, GeometryRHVAEConfig
+from src.models.samplers.hmc_sampler import (
     RiemannianHMCSampler,
     VolumeElementRiemannianHMCSampler,
 )
