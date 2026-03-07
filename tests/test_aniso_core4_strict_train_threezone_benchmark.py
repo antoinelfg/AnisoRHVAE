@@ -37,16 +37,17 @@ def _write_cfg(tmp_path: Path) -> Path:
             "output_root": str(tmp_path / "sampling_results"),
             "common_args": {
                 "sampler_name": "volume_riemannian",
-                "use_dual_metric": "False",
+                "mass_mode": "dual",
                 "atom_scale": 100.0,
                 "volume_power": 2.0,
                 "radial_prior_weight": 0.1,
                 "steps": 500,
                 "n_lf_inner": 10,
                 "eps": 0.05,
-                "adaptive_dual_step": True,
-                "adaptive_max_dual_displacement": 0.05,
+                "adaptive_dual_step": False,
+                "dynamic_jitter_scale": 0.0,
                 "fp_steps": 15,
+                "fp_damping": 0.72,
                 "void_eigshape_mode": "none",
             },
         },
@@ -130,11 +131,18 @@ def test_runner_builds_expected_commands_and_n_scaling(monkeypatch, tmp_path: Pa
     for cmd in sampling_cmds:
         cmd_join = " ".join(cmd)
         assert "--sampler_name volume_riemannian" in cmd_join
-        assert "--use_dual_metric False" in cmd_join
+        assert "--mass_mode dual" in cmd_join
         assert "--steps 500" in cmd_join
         assert "--n_lf_inner 10" in cmd_join
         assert "--eps 0.05" in cmd_join
         assert "--wandb_job_type three_zone_sampling" in cmd_join
+
+    benchmark_dir = summary_path.parent
+    assert (benchmark_dir / "resolved_benchmark_config.yaml").exists()
+    assert (benchmark_dir / "resolved_training_overrides.json").exists()
+    assert (benchmark_dir / "resolved_sampling_args.json").exists()
+    assert (benchmark_dir / "git_commit.txt").exists()
+    assert (benchmark_dir / "git_status.txt").exists()
 
     train_envs = [env for cmd, env in captured if "run_with_config.py" in " ".join(cmd)]
     assert len(train_envs) == 2
@@ -246,6 +254,9 @@ def test_cli_reuse_latest_creates_summary_without_training(tmp_path: Path) -> No
     assert summary_path.exists()
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     assert payload["rows"][0]["status"] == "reused"
+    assert (latest / "resolved_benchmark_config.yaml").exists()
+    assert (latest / "resolved_training_overrides.json").exists()
+    assert (latest / "resolved_sampling_args.json").exists()
 
     call_lines = fake_log.read_text(encoding="utf-8").splitlines()
     assert not any("run_with_config.py" in line for line in call_lines)

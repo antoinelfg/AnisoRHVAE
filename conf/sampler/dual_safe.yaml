@@ -1,7 +1,7 @@
-name: volume_riemannian
+name: dual_safe
 script_args:
   sampler_name: volume_riemannian
-  mass_mode: standard
+  mass_mode: dual
   atom_scale: 100.0
   volume_power: 2.0
   radial_prior_weight: 0.1
@@ -10,6 +10,8 @@ script_args:
   eps: 0.05
   fp_steps: 15
   fp_damping: 0.72
-  adaptive_dual_step: false
-  dynamic_jitter_scale: 0.0
+  adaptive_dual_step: true
+  adaptive_max_dual_displacement: 0.05
+  adaptive_min_step_scale: 0.05
+  dynamic_jitter_scale: 1.0e-5
   void_eigshape_mode: none

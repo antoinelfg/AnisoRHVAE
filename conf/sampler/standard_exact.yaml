@@ -1,4 +1,4 @@
-name: volume_riemannian
+name: standard_exact
 script_args:
   sampler_name: volume_riemannian
   mass_mode: standard

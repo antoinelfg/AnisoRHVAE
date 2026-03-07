@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT_DIR / "src"))
 from src.models.rhvae_geometry import GeometryRHVAE, GeometryRHVAEConfig
 from src.utils.metric_helpers import load_metric_bundle
 from src.utils.wandb_logging import init_wandb_run, make_wandb_image, safe_wandb_finish, safe_wandb_log
-from scripts.rhmc_chain_demo import _build_sampler, run_hmc_chain
+from scripts.rhmc_chain_demo import _build_sampler, _normalize_sampler_name, run_hmc_chain
 
 
 def load_geometry_model(model_path: Path, device: torch.device) -> GeometryRHVAE:
@@ -525,6 +525,13 @@ def parse_args() -> argparse.Namespace:
         default="volume_riemannian",
         choices=["volume", "volume_riemannian", "hybrid_volume_mix"],
     )
+    p.add_argument(
+        "--mass_mode",
+        type=str,
+        default="standard",
+        choices=["standard", "dual"],
+        help="Mass convention for volume_riemannian: standard uses M=G, dual uses M=G^-1.",
+    )
     p.add_argument("--volume_power", type=float, default=0.8)
     p.add_argument("--steps", type=int, default=120)
     p.add_argument("--n_lf_inner", type=int, default=6)
@@ -547,6 +554,12 @@ def parse_args() -> argparse.Namespace:
         help="Disable local dual-step adaptation.",
     )
     p.set_defaults(adaptive_dual_step=None)
+    p.add_argument(
+        "--dynamic_jitter_scale",
+        type=float,
+        default=0.0,
+        help="Trace-scaled covariance jitter used during momentum refresh.",
+    )
     p.add_argument(
         "--adaptive_max_dual_displacement",
         type=float,
@@ -606,7 +619,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--void_eig_flip_eig_floor", type=float, default=None, help=argparse.SUPPRESS)
     p.add_argument("--momentum_persist", type=float, default=0.35)
     # Backward-compatible aliases.
-    p.add_argument("--use_dual_metric", type=str, default="False", help="True, False, or zone_aware")
+    p.add_argument("--use_dual_metric", type=str, default=None, help=argparse.SUPPRESS)
     p.add_argument("--atom_scale", type=float, default=1.0)
     p.add_argument("--integrator", type=str, default="implicit", help=argparse.SUPPRESS)
     p.add_argument("--no_metropolis", action="store_true", help=argparse.SUPPRESS)
@@ -619,6 +632,22 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--wandb_mode", type=str, default=None, choices=["online", "offline", "disabled"])
     p.add_argument("--wandb_job_type", type=str, default="three_zone_sampling")
     return p.parse_args()
+
+
+def resolve_mass_mode(args: argparse.Namespace, canonical_sampler_name: str) -> str:
+    mass_mode = str(args.mass_mode)
+    if args.use_dual_metric is not None:
+        dual_metric_val = str(args.use_dual_metric).strip().lower()
+        if dual_metric_val in {"true", "1"}:
+            mass_mode = "dual"
+        elif dual_metric_val in {"false", "0"}:
+            mass_mode = "standard"
+        else:
+            raise ValueError("Deprecated --use_dual_metric only accepts True/False or 1/0.")
+
+    if canonical_sampler_name == "hybrid_volume_mix":
+        return "standard"
+    return mass_mode
 
 
 def main() -> None:
@@ -668,19 +697,11 @@ def main() -> None:
 
         model_effective.atom_scale = float(args.atom_scale)
 
-        dual_metric_val = str(args.use_dual_metric).lower()
-        if dual_metric_val == "true" or dual_metric_val == "1":
-            use_dual_metric = True
-        elif dual_metric_val == "false" or dual_metric_val == "0":
-            use_dual_metric = False
-        else:
-            use_dual_metric = str(args.use_dual_metric)
-
-        if str(args.sampler_name) == "hybrid_volume_mix":
-            use_dual_metric = False
+        canonical_sampler_name = _normalize_sampler_name(str(args.sampler_name))
+        mass_mode = resolve_mass_mode(args, canonical_sampler_name)
 
         sampler = _build_sampler(
-            name=str(args.sampler_name),
+            name=canonical_sampler_name,
             model=model_effective,
             mcmc_steps=max(1, int(args.steps)),
             n_lf=max(1, int(args.n_lf_inner)),
@@ -693,7 +714,15 @@ def main() -> None:
             hybrid_rescue_steps=max(1, int(args.hybrid_rescue_steps)),
             hybrid_rescue_warmup_steps=max(0, int(args.hybrid_rescue_warmup_steps)),
             hybrid_rescue_use_dual_metric=bool(args.hybrid_rescue_use_dual_metric),
-            use_dual_metric=bool(use_dual_metric),
+            mass_mode=str(mass_mode),
+            adaptive_dual_step=bool(args.adaptive_dual_step) if args.adaptive_dual_step is not None else False,
+            adaptive_max_dual_displacement=float(args.adaptive_max_dual_displacement)
+            if args.adaptive_max_dual_displacement is not None
+            else 0.75,
+            adaptive_min_step_scale=float(args.adaptive_min_step_scale)
+            if args.adaptive_min_step_scale is not None
+            else 0.05,
+            dynamic_jitter_scale=float(args.dynamic_jitter_scale),
         )
         sampler.exact = (str(args.integrator).lower() != "explicit")
         if hasattr(sampler, "fp_steps"):
@@ -739,9 +768,22 @@ def main() -> None:
         if len(starts) == 0:
             raise ValueError("No start points were generated; adjust manifold/near/far point counts.")
 
+        run_dir = Path(args.output_dir) / dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        run_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Run dir: {run_dir}")
+
+        resolved_args = dict(vars(args))
+        resolved_args["sampler_name"] = canonical_sampler_name
+        resolved_args["mass_mode"] = mass_mode
+        resolved_args["dynamic_jitter_scale"] = float(args.dynamic_jitter_scale)
+        (run_dir / "resolved_args.json").write_text(json.dumps(resolved_args, indent=2), encoding="utf-8")
+
         trajectories: list[tuple[str, dict[str, np.ndarray], str]] = []
         runtime_diagnostics_by_name: dict[str, dict[str, Any]] = {}
-        for name, z0, color in starts:
+        progress_rows: list[dict[str, Any]] = []
+        total_starts = len(starts)
+        for idx, (name, z0, color) in enumerate(starts, start=1):
+            print(f"[{idx}/{total_starts}] start {name}", flush=True)
             if hasattr(sampler, "_reset_runtime_diagnostics"):
                 sampler._reset_runtime_diagnostics()
             tr = simulate_chain(
@@ -761,6 +803,18 @@ def main() -> None:
                 sampler._finalize_runtime_diagnostics()
             if hasattr(sampler, "get_runtime_diagnostics"):
                 runtime_diagnostics_by_name[name] = dict(sampler.get_runtime_diagnostics())
+            progress_row = summarize_traj(name, tr)
+            diag = runtime_diagnostics_by_name.get(name)
+            if diag:
+                progress_row["runtime_diagnostics"] = diag
+            progress_rows.append(progress_row)
+            (run_dir / "progress.json").write_text(json.dumps(progress_rows, indent=2), encoding="utf-8")
+            print(
+                f"[{idx}/{total_starts}] done {name}: "
+                f"acc={progress_row['accept_rate']:.3f}, "
+                f"d0={progress_row['distance_start']:.3f} -> dT={progress_row['distance_end']:.3f}",
+                flush=True,
+            )
 
         starts_np = np.vstack([z.detach().cpu().numpy() for _, z, _ in starts])
         traj_only = [t for _, t, _ in trajectories]
@@ -771,7 +825,6 @@ def main() -> None:
             dims=(d0, d1),
         )
 
-        run_dir = Path(args.output_dir) / dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         fig_path = run_dir / "rhmc_three_zones_real_metric.png"
         make_figure(
             model=model_effective,
@@ -782,7 +835,7 @@ def main() -> None:
             volume_power=float(args.volume_power),
             grid_n=int(args.grid_n),
             out_path=fig_path,
-            sampler_label=str(args.sampler_name),
+            sampler_label=str(canonical_sampler_name),
         )
 
         summary_rows: list[dict[str, Any]] = []
@@ -794,17 +847,24 @@ def main() -> None:
             summary_rows.append(row)
 
         summary = {
-            "args": vars(args),
+            "args": resolved_args,
             "metric_eigshape": {
                 "void_eigshape_mode": eigshape_mode,
                 "void_eigshape_alpha_min": eigshape_alpha_min,
                 "void_eigshape_power": eigshape_power,
                 "void_eigshape_eig_floor": eigshape_floor,
             },
+            "sampler_contract": {
+                "sampler_name": canonical_sampler_name,
+                "mass_mode": mass_mode,
+                "adaptive_dual_step": bool(getattr(sampler, "adaptive_dual_step", False)),
+                "dynamic_jitter_scale": float(getattr(sampler, "dynamic_jitter_scale", 0.0)),
+            },
+            "runtime_diagnostics": runtime_diagnostics_by_name,
             "dims": [int(d0), int(d1)],
             "trajectories": summary_rows,
         }
-        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "resolved_args.json").write_text(json.dumps(resolved_args, indent=2), encoding="utf-8")
         (run_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
         _log_to_wandb(
             wandb_run,

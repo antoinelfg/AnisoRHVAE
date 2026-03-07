@@ -34,9 +34,20 @@ SAMPLERS: dict[str, Any] = {
     "hybrid_volume_mix": None,
 }
 
+SAMPLER_CHOICES = ["riemannian", "volume_riemannian", "hybrid_volume_mix", "volume"]
+
+
+def _normalize_sampler_name(name: str) -> str:
+    raw = str(name).strip().lower()
+    if raw == "volume":
+        return "volume_riemannian"
+    if raw not in SAMPLERS:
+        raise ValueError(f"Unsupported sampler: {name}")
+    return raw
+
 
 class HybridVolumeMixSampler:
-    """Alternate `volume` (explore) and `volume_riemannian` (rescue) kernels."""
+    """Alternate canonical `volume_riemannian` kernels for explore/rescue phases."""
 
     is_hybrid_mix = True
 
@@ -77,7 +88,7 @@ class HybridVolumeMixSampler:
             beta_zero=beta_zero,
             exact=exact,
             volume_power=volume_power,
-            use_dual_metric=False,
+            mass_mode="standard",
         )
         self.rescue_sampler = VolumeElementRiemannianHMCSampler(
             model,
@@ -91,7 +102,7 @@ class HybridVolumeMixSampler:
             volume_power=volume_power,
             radial_prior_weight=radial_prior_weight,
             radial_prior_center=radial_prior_center,
-            use_dual_metric=bool(hybrid_rescue_use_dual_metric),
+            mass_mode="dual" if bool(hybrid_rescue_use_dual_metric) else "standard",
         )
 
         self._exact = bool(exact)
@@ -235,8 +246,13 @@ def _build_sampler(
     hybrid_rescue_steps: int = 1,
     hybrid_rescue_warmup_steps: int = 0,
     hybrid_rescue_use_dual_metric: bool = False,
-    use_dual_metric: bool = False,
+    mass_mode: str = "standard",
+    adaptive_dual_step: bool = False,
+    adaptive_max_dual_displacement: float = 0.75,
+    adaptive_min_step_scale: float = 0.05,
+    dynamic_jitter_scale: float = 0.0,
 ):
+    name = _normalize_sampler_name(name)
     if name == "hybrid_volume_mix":
         return HybridVolumeMixSampler(
             model,
@@ -274,14 +290,7 @@ def _build_sampler(
             beta_zero=beta_zero,
             include_volume_grad=True,
         )
-    if name in {"volume", "volume_riemannian"}:
-        extra_kwargs = {}
-        if name == "volume_riemannian":
-            extra_kwargs = {
-                "radial_prior_weight": radial_prior_weight,
-                "radial_prior_center": radial_prior_center,
-                "use_dual_metric": bool(use_dual_metric),
-            }
+    if name == "volume_riemannian":
         return sampler_cls(
             model,
             mcmc_steps_nbr=mcmc_steps,
@@ -289,7 +298,13 @@ def _build_sampler(
             eps_lf=eps_lf,
             beta_zero=beta_zero,
             volume_power=volume_power,
-            **extra_kwargs,
+            radial_prior_weight=radial_prior_weight,
+            radial_prior_center=radial_prior_center,
+            mass_mode=str(mass_mode),
+            adaptive_dual_step=bool(adaptive_dual_step),
+            adaptive_max_dual_displacement=float(adaptive_max_dual_displacement),
+            adaptive_min_step_scale=float(adaptive_min_step_scale),
+            dynamic_jitter_scale=float(dynamic_jitter_scale),
         )
     return sampler_cls(
         model,
@@ -313,7 +328,10 @@ def _compute_hamiltonian(sampler: Any, z: torch.Tensor, rho: torch.Tensor) -> to
 def _compute_kinetic(sampler: Any, z: torch.Tensor, rho: torch.Tensor) -> torch.Tensor:
     if bool(getattr(sampler, "is_hybrid_mix", False)):
         sampler = sampler.explore_sampler
-    if isinstance(sampler, (RiemannianHMCSampler, VolumeElementRiemannianHMCSampler)):
+    if hasattr(sampler, "_get_mass_matrix"):
+        _, M_inv, _ = sampler._get_mass_matrix(z)
+        return 0.5 * torch.einsum("bi,bij,bj->b", rho, M_inv, rho)
+    if isinstance(sampler, RiemannianHMCSampler):
         G_inv = sampler.model.G_inv(z)
         return 0.5 * torch.einsum("bi,bij,bj->b", rho, G_inv, rho)
     return 0.5 * torch.sum(rho * rho, dim=1)
@@ -784,7 +802,7 @@ def _grid_anisotropy_map(
 def main() -> None:
     parser = argparse.ArgumentParser(description="RHMC chain demo (centroid vs void).")
     parser.add_argument("--model_path", type=str, required=True, help="Path to model dir or rhvae_metric.pt")
-    parser.add_argument("--sampler", type=str, default="volume", choices=sorted(SAMPLERS.keys()))
+    parser.add_argument("--sampler", type=str, default="volume_riemannian", choices=SAMPLER_CHOICES)
     parser.add_argument("--chain_length", type=int, default=60)
     parser.add_argument("--n_lf", type=int, default=20)
     parser.add_argument("--eps_lf", type=float, default=0.02)
@@ -838,6 +856,35 @@ def main() -> None:
         "--hybrid_rescue_use_dual_metric",
         action="store_true",
         help="For hybrid sampler: run rescue kernel with dual RHMC metric convention (M=G^-1).",
+    )
+    parser.add_argument(
+        "--mass_mode",
+        type=str,
+        default="standard",
+        choices=["standard", "dual"],
+        help="Mass convention for volume_riemannian: standard uses M=G, dual uses M=G^-1.",
+    )
+    adapt_group = parser.add_mutually_exclusive_group()
+    adapt_group.add_argument(
+        "--adaptive_dual_step",
+        dest="adaptive_dual_step",
+        action="store_true",
+        help="Enable local step adaptation for the dual sampler.",
+    )
+    adapt_group.add_argument(
+        "--no_adaptive_dual_step",
+        dest="adaptive_dual_step",
+        action="store_false",
+        help="Disable local step adaptation for the dual sampler.",
+    )
+    parser.set_defaults(adaptive_dual_step=False)
+    parser.add_argument("--adaptive_max_dual_displacement", type=float, default=0.75)
+    parser.add_argument("--adaptive_min_step_scale", type=float, default=0.05)
+    parser.add_argument(
+        "--dynamic_jitter_scale",
+        type=float,
+        default=0.0,
+        help="Trace-scaled covariance jitter used during momentum refresh.",
     )
     exact_group = parser.add_mutually_exclusive_group()
     exact_group.add_argument("--exact", dest="exact", action="store_true", help="Use exact implicit RHMC.")
@@ -1069,6 +1116,11 @@ def main() -> None:
                     hybrid_rescue_steps=args.hybrid_rescue_steps,
                     hybrid_rescue_warmup_steps=args.hybrid_rescue_warmup_steps,
                     hybrid_rescue_use_dual_metric=args.hybrid_rescue_use_dual_metric,
+                    mass_mode=args.mass_mode,
+                    adaptive_dual_step=args.adaptive_dual_step,
+                    adaptive_max_dual_displacement=args.adaptive_max_dual_displacement,
+                    adaptive_min_step_scale=args.adaptive_min_step_scale,
+                    dynamic_jitter_scale=args.dynamic_jitter_scale,
                 )
                 sampler.exact = bool(args.exact)
                 if args.fp_steps is not None:
@@ -1125,6 +1177,11 @@ def main() -> None:
                 hybrid_rescue_steps=args.hybrid_rescue_steps,
                 hybrid_rescue_warmup_steps=args.hybrid_rescue_warmup_steps,
                 hybrid_rescue_use_dual_metric=args.hybrid_rescue_use_dual_metric,
+                mass_mode=args.mass_mode,
+                adaptive_dual_step=args.adaptive_dual_step,
+                adaptive_max_dual_displacement=args.adaptive_max_dual_displacement,
+                adaptive_min_step_scale=args.adaptive_min_step_scale,
+                dynamic_jitter_scale=args.dynamic_jitter_scale,
             )
             # Configure implicit solver / exactness / momentum persistence if supported
             sampler.exact = bool(args.exact)

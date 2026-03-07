@@ -10,6 +10,7 @@ import os
 import random
 import re
 import shutil
+import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass
@@ -54,6 +55,27 @@ from src.utils.rescue_metrics import (
     model_r0,
     summarize_rescue_from_distances,
 )
+
+
+def _git_text(args: list[str]) -> str:
+    try:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=ROOT_DIR,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except Exception as exc:
+        return f"<unavailable: {exc}>"
+    return proc.stdout
+
+
+def write_provenance_snapshot(out_dir: Path, *, args_payload: dict[str, Any]) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "resolved_args.json").write_text(json.dumps(args_payload, indent=2), encoding="utf-8")
+    (out_dir / "git_commit.txt").write_text(_git_text(["rev-parse", "HEAD"]), encoding="utf-8")
+    (out_dir / "git_status.txt").write_text(_git_text(["status", "--short"]), encoding="utf-8")
 
 
 DEFAULT_BASELINE_MODEL = ROOT_DIR / "outputs/pythae_rhvae_baseline/2026-02-09_15-04-06"
@@ -191,10 +213,11 @@ class SamplerConfig:
     fp_steps: int = 15
     fp_damping: float = 0.7
     radial_prior_weight: float = 0.0
-    use_dual_metric: bool = False
+    mass_mode: str = "standard"
     adaptive_dual_step: bool = False
     adaptive_max_dual_displacement: float = 0.75
     adaptive_min_step_scale: float = 0.05
+    dynamic_jitter_scale: float = 0.0
     hybrid_explore_steps: int = 3
     hybrid_rescue_steps: int = 1
 
@@ -203,18 +226,15 @@ def effective_volume_exponent(sampler_name: str, volume_power: float) -> float:
     """Effective exponent on det(G_inv) in the induced target density."""
     name = str(sampler_name).strip().lower()
     vp = float(volume_power)
-    if name == "volume_riemannian":
-        # In RMHMC, the 0.5*log det(G) correction adds +0.5 to log det(G_inv) weight.
+    if name in {"volume", "volume_riemannian"}:
         return vp + 0.5
-    if name == "volume":
-        return vp
     return float("nan")
 
 
 def normalize_sampler_name(name: str) -> str:
     raw = str(name).strip().lower()
     aliases = {
-        "volume": "volume",
+        "volume": "volume_riemannian",
         "volume_riemannian": "volume_riemannian",
         "riemannian": "riemannian",
         "geodesic": "geodesic",
@@ -593,7 +613,11 @@ def sampler_from_config(
         volume_power=cfg.volume_power,
         radial_prior_weight=float(cfg.radial_prior_weight),
         radial_prior_center=None,
-        use_dual_metric=bool(cfg.use_dual_metric),
+        mass_mode=str(cfg.mass_mode),
+        adaptive_dual_step=bool(cfg.adaptive_dual_step),
+        adaptive_max_dual_displacement=float(cfg.adaptive_max_dual_displacement),
+        adaptive_min_step_scale=float(cfg.adaptive_min_step_scale),
+        dynamic_jitter_scale=float(cfg.dynamic_jitter_scale),
         hybrid_explore_steps=int(cfg.hybrid_explore_steps),
         hybrid_rescue_steps=int(cfg.hybrid_rescue_steps),
     )
@@ -609,6 +633,8 @@ def sampler_from_config(
         sampler.adaptive_max_dual_displacement = float(cfg.adaptive_max_dual_displacement)
     if hasattr(sampler, "adaptive_min_step_scale"):
         sampler.adaptive_min_step_scale = float(cfg.adaptive_min_step_scale)
+    if hasattr(sampler, "dynamic_jitter_scale"):
+        sampler.dynamic_jitter_scale = float(cfg.dynamic_jitter_scale)
     return sampler
 
 
@@ -626,6 +652,7 @@ def run_chain_batch(
     chains: list[np.ndarray] = []
     energies: list[dict[str, np.ndarray]] = []
     accept_rates: list[float] = []
+    wall_time_start = time.perf_counter()
     for _ in range(n_chains):
         start_idx = torch.randint(
             0,
@@ -654,6 +681,7 @@ def run_chain_batch(
         "chains": chains,
         "energies": energies,
         "acceptance_rates": accept_rates,
+        "wall_time_sec": float(max(0.0, time.perf_counter() - wall_time_start)),
     }
 
 
@@ -661,6 +689,7 @@ def evaluate_mixing_stability(
     chains: list[np.ndarray],
     energies: list[dict[str, np.ndarray]],
     burn_in: int,
+    wall_time_sec: float | None = None,
 ) -> dict[str, Any]:
     chain_stack = np.stack(chains, axis=0)
     accept = [np.asarray(e.get("accept", np.array([])), dtype=float) for e in energies]
@@ -679,7 +708,11 @@ def evaluate_mixing_stability(
         "dh_p95_abs": ham_stats["dh_p95_abs"],
         "h_drift_slope_abs_mean": ham_stats["h_drift_slope_abs_mean"],
         "ess_min": ess_stats["ess_min"],
+        "ess_median": ess_stats["ess_median"],
         "ess_norm_min": ess_stats["ess_norm_min"],
+        "ess_median_per_sec": float(ess_stats["ess_median"] / max(1e-9, float(wall_time_sec)))
+        if wall_time_sec is not None
+        else float("nan"),
         "iact_median": ess_stats["iact_median"],
         "ess_per_dim": ess_stats["ess_per_dim"],
         "ess_norm_per_dim": ess_stats["ess_norm_per_dim"],
@@ -687,6 +720,7 @@ def evaluate_mixing_stability(
         "acf_per_dim": ess_stats["acf_per_dim"],
         "chains_array": chain_stack,
         "energies": energies,
+        "wall_time_sec": float(wall_time_sec) if wall_time_sec is not None else float("nan"),
     }
 
 
@@ -1368,10 +1402,11 @@ def select_matched_eps(
     fp_steps: int,
     fp_damping: float,
     radial_prior_weight: float,
-    use_dual_metric: bool,
+    mass_mode: str,
     adaptive_dual_step: bool,
     adaptive_max_dual_displacement: float,
     adaptive_min_step_scale: float,
+    dynamic_jitter_scale: float,
     hybrid_explore_steps: int,
     hybrid_rescue_steps: int,
     eps_grid: list[float],
@@ -1395,10 +1430,11 @@ def select_matched_eps(
             fp_steps=fp_steps,
             fp_damping=fp_damping,
             radial_prior_weight=float(radial_prior_weight),
-            use_dual_metric=bool(use_dual_metric),
+            mass_mode=str(mass_mode),
             adaptive_dual_step=bool(adaptive_dual_step),
             adaptive_max_dual_displacement=float(adaptive_max_dual_displacement),
             adaptive_min_step_scale=float(adaptive_min_step_scale),
+            dynamic_jitter_scale=float(dynamic_jitter_scale),
             hybrid_explore_steps=int(hybrid_explore_steps),
             hybrid_rescue_steps=int(hybrid_rescue_steps),
         )
@@ -1438,10 +1474,11 @@ def select_tuned_config(
     fp_steps: int,
     fp_damping: float,
     radial_prior_weight: float,
-    use_dual_metric: bool,
+    mass_mode: str,
     adaptive_dual_step: bool,
     adaptive_max_dual_displacement: float,
     adaptive_min_step_scale: float,
+    dynamic_jitter_scale: float,
     hybrid_explore_steps: int,
     hybrid_rescue_steps: int,
     target_acceptance: float,
@@ -1458,10 +1495,11 @@ def select_tuned_config(
         fp_steps=int(fp_steps),
         fp_damping=float(fp_damping),
         radial_prior_weight=float(radial_prior_weight),
-        use_dual_metric=bool(use_dual_metric),
+        mass_mode=str(mass_mode),
         adaptive_dual_step=bool(adaptive_dual_step),
         adaptive_max_dual_displacement=float(adaptive_max_dual_displacement),
         adaptive_min_step_scale=float(adaptive_min_step_scale),
+        dynamic_jitter_scale=float(dynamic_jitter_scale),
         hybrid_explore_steps=int(hybrid_explore_steps),
         hybrid_rescue_steps=int(hybrid_rescue_steps),
     )
@@ -1481,10 +1519,11 @@ def select_tuned_config(
                     fp_steps=fp_steps,
                     fp_damping=fp_damping,
                     radial_prior_weight=float(radial_prior_weight),
-                    use_dual_metric=bool(use_dual_metric),
+                    mass_mode=str(mass_mode),
                     adaptive_dual_step=bool(adaptive_dual_step),
                     adaptive_max_dual_displacement=float(adaptive_max_dual_displacement),
                     adaptive_min_step_scale=float(adaptive_min_step_scale),
+                    dynamic_jitter_scale=float(dynamic_jitter_scale),
                     hybrid_explore_steps=int(hybrid_explore_steps),
                     hybrid_rescue_steps=int(hybrid_rescue_steps),
                 )
@@ -1496,7 +1535,12 @@ def select_tuned_config(
                     chain_length=pilot_chain_length,
                     seed=101,
                 )
-                mix = evaluate_mixing_stability(batch["chains"], batch["energies"], burn_in=min(burn_in, pilot_chain_length // 4))
+                mix = evaluate_mixing_stability(
+                    batch["chains"],
+                    batch["energies"],
+                    burn_in=min(burn_in, pilot_chain_length // 4),
+                    wall_time_sec=float(batch["wall_time_sec"]),
+                )
                 acc = mix["acceptance_mean"]
                 dh = mix["dh_p95_abs"]
                 ess = mix["ess_norm_min"]
@@ -1782,7 +1826,12 @@ def evaluate_model_protocol_seed(
         chain_length=args.chain_length,
         seed=seed + 11,
     )
-    mix_metrics = evaluate_mixing_stability(mix_batch["chains"], mix_batch["energies"], burn_in=args.burn_in)
+    mix_metrics = evaluate_mixing_stability(
+        mix_batch["chains"],
+        mix_batch["energies"],
+        burn_in=args.burn_in,
+        wall_time_sec=float(mix_batch["wall_time_sec"]),
+    )
 
     n_samples_needed = max(
         args.coverage_samples,
@@ -1875,6 +1924,11 @@ def evaluate_model_protocol_seed(
         "fp_steps": int(sampler_cfg.fp_steps),
         "fp_damping": float(sampler_cfg.fp_damping),
         "radial_prior_weight": float(sampler_cfg.radial_prior_weight),
+        "mass_mode": str(sampler_cfg.mass_mode),
+        "adaptive_dual_step": bool(sampler_cfg.adaptive_dual_step),
+        "adaptive_max_dual_displacement": float(sampler_cfg.adaptive_max_dual_displacement),
+        "adaptive_min_step_scale": float(sampler_cfg.adaptive_min_step_scale),
+        "dynamic_jitter_scale": float(sampler_cfg.dynamic_jitter_scale),
         "hybrid_explore_steps": int(sampler_cfg.hybrid_explore_steps),
         "hybrid_rescue_steps": int(sampler_cfg.hybrid_rescue_steps),
         "n_chains": int(args.n_chains),
@@ -1889,8 +1943,11 @@ def evaluate_model_protocol_seed(
         "dh_p95_abs": float(mix_metrics["dh_p95_abs"]),
         "h_drift_slope_abs_mean": float(mix_metrics["h_drift_slope_abs_mean"]),
         "ess_min": float(mix_metrics["ess_min"]),
+        "ess_median": float(mix_metrics["ess_median"]),
+        "ess_median_per_sec": float(mix_metrics["ess_median_per_sec"]),
         "ess_norm_min": float(mix_metrics["ess_norm_min"]),
         "iact_median": float(mix_metrics["iact_median"]),
+        "mix_wall_time_sec": float(mix_metrics["wall_time_sec"]),
         "coverage_local": float(coverage),
         "rescue_rate": float(rescue["rescue_rate"]),
         "median_steps_to_manifold": float(rescue["median_steps_to_manifold"]),
@@ -1962,19 +2019,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--strict_volume_power",
         type=float,
-        default=1.0,
+        default=2.0,
         help="Volume exponent used in strict protocol.",
     )
     parser.add_argument(
         "--strict_n_lf",
         type=int,
-        default=30,
+        default=10,
         help="Leapfrog step count used by strict protocol (and matched/tuned pilot initialization).",
     )
     parser.add_argument(
         "--strict_eps_lf",
         type=float,
-        default=0.01,
+        default=0.05,
         help="Leapfrog step size used by strict protocol.",
     )
     parser.add_argument(
@@ -1986,7 +2043,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--strict_fp_damping",
         type=float,
-        default=0.7,
+        default=0.72,
         help="Damping factor for fixed-point updates in Riemannian generalized leapfrog samplers.",
     )
     parser.add_argument(
@@ -2010,13 +2067,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--strict_radial_prior_weight",
         type=float,
-        default=0.0,
+        default=0.1,
         help="Optional radial prior strength for volume_riemannian to improve manifold rescue.",
     )
     parser.add_argument(
+        "--strict_mass_mode",
+        type=str,
+        default="standard",
+        choices=["standard", "dual"],
+        help="Mass convention for strict/matched/tuned volume_riemannian protocols.",
+    )
+    parser.add_argument(
         "--strict_use_dual_metric",
-        action="store_true",
-        help="Enable dual-metric dynamics for volume_riemannian strict/matched/tuned protocols.",
+        type=str,
+        nargs="?",
+        const="True",
+        default=None,
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--strict_adaptive_dual_step",
@@ -2042,6 +2109,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.05,
         help="Lower bound for local eps scaling in adaptive dual mode.",
+    )
+    parser.add_argument(
+        "--strict_dynamic_jitter_scale",
+        type=float,
+        default=0.0,
+        help="Trace-scaled covariance jitter used during momentum refresh in strict protocols.",
     )
     parser.add_argument(
         "--strict_hybrid_explore_steps",
@@ -2118,6 +2191,14 @@ def parse_args() -> argparse.Namespace:
     )
 
     args = parser.parse_args()
+    if args.strict_use_dual_metric is not None:
+        strict_dual_raw = str(args.strict_use_dual_metric).strip().lower()
+        if strict_dual_raw in {"true", "1"}:
+            args.strict_mass_mode = "dual"
+        elif strict_dual_raw in {"false", "0"}:
+            args.strict_mass_mode = "standard"
+        else:
+            parser.error("Deprecated --strict_use_dual_metric only accepts True/False or 1/0.")
     if args.protocol_profile:
         if args.protocol_profile == "all":
             args.protocols = ["strict", "matched", "tuned"]
@@ -2199,6 +2280,7 @@ def main() -> None:
     out_dir = build_output_dir(Path(args.output_dir))
     plots_dir = out_dir / "plots"
     plots_dir.mkdir(parents=True, exist_ok=True)
+    write_provenance_snapshot(out_dir, args_payload=dict(vars(args)))
 
     if args.collect_reference_visuals or args.save_plots:
         reference_root = plots_dir / "reference"
@@ -2272,10 +2354,11 @@ def main() -> None:
             fp_steps=strict_fp_steps,
             fp_damping=strict_fp_damping,
             radial_prior_weight=float(args.strict_radial_prior_weight),
-            use_dual_metric=bool(args.strict_use_dual_metric),
+            mass_mode=str(args.strict_mass_mode),
             adaptive_dual_step=bool(args.strict_adaptive_dual_step),
             adaptive_max_dual_displacement=float(args.strict_adaptive_max_dual_displacement),
             adaptive_min_step_scale=float(args.strict_adaptive_min_step_scale),
+            dynamic_jitter_scale=float(args.strict_dynamic_jitter_scale),
             hybrid_explore_steps=int(args.strict_hybrid_explore_steps),
             hybrid_rescue_steps=int(args.strict_hybrid_rescue_steps),
         )
@@ -2304,10 +2387,11 @@ def main() -> None:
                         fp_steps=strict_cfg.fp_steps,
                         fp_damping=strict_cfg.fp_damping,
                         radial_prior_weight=float(strict_cfg.radial_prior_weight),
-                        use_dual_metric=bool(strict_cfg.use_dual_metric),
+                        mass_mode=str(strict_cfg.mass_mode),
                         adaptive_dual_step=bool(strict_cfg.adaptive_dual_step),
                         adaptive_max_dual_displacement=float(strict_cfg.adaptive_max_dual_displacement),
                         adaptive_min_step_scale=float(strict_cfg.adaptive_min_step_scale),
+                        dynamic_jitter_scale=float(strict_cfg.dynamic_jitter_scale),
                         hybrid_explore_steps=int(strict_cfg.hybrid_explore_steps),
                         hybrid_rescue_steps=int(strict_cfg.hybrid_rescue_steps),
                     )
@@ -2337,10 +2421,11 @@ def main() -> None:
                         fp_steps=strict_cfg.fp_steps,
                         fp_damping=strict_cfg.fp_damping,
                         radial_prior_weight=float(strict_cfg.radial_prior_weight),
-                        use_dual_metric=bool(strict_cfg.use_dual_metric),
+                        mass_mode=str(strict_cfg.mass_mode),
                         adaptive_dual_step=bool(strict_cfg.adaptive_dual_step),
                         adaptive_max_dual_displacement=float(strict_cfg.adaptive_max_dual_displacement),
                         adaptive_min_step_scale=float(strict_cfg.adaptive_min_step_scale),
+                        dynamic_jitter_scale=float(strict_cfg.dynamic_jitter_scale),
                         hybrid_explore_steps=int(strict_cfg.hybrid_explore_steps),
                         hybrid_rescue_steps=int(strict_cfg.hybrid_rescue_steps),
                         eps_grid=[float(v) for v in args.matched_eps_grid],
@@ -2366,10 +2451,11 @@ def main() -> None:
                         fp_steps=strict_cfg.fp_steps,
                         fp_damping=strict_cfg.fp_damping,
                         radial_prior_weight=float(strict_cfg.radial_prior_weight),
-                        use_dual_metric=bool(strict_cfg.use_dual_metric),
+                        mass_mode=str(strict_cfg.mass_mode),
                         adaptive_dual_step=bool(strict_cfg.adaptive_dual_step),
                         adaptive_max_dual_displacement=float(strict_cfg.adaptive_max_dual_displacement),
                         adaptive_min_step_scale=float(strict_cfg.adaptive_min_step_scale),
+                        dynamic_jitter_scale=float(strict_cfg.dynamic_jitter_scale),
                         hybrid_explore_steps=int(strict_cfg.hybrid_explore_steps),
                         hybrid_rescue_steps=int(strict_cfg.hybrid_rescue_steps),
                     )
@@ -2405,10 +2491,11 @@ def main() -> None:
                     fp_steps=strict_cfg.fp_steps,
                     fp_damping=strict_cfg.fp_damping,
                     radial_prior_weight=float(strict_cfg.radial_prior_weight),
-                    use_dual_metric=bool(strict_cfg.use_dual_metric),
+                    mass_mode=str(strict_cfg.mass_mode),
                     adaptive_dual_step=bool(strict_cfg.adaptive_dual_step),
                     adaptive_max_dual_displacement=float(strict_cfg.adaptive_max_dual_displacement),
                     adaptive_min_step_scale=float(strict_cfg.adaptive_min_step_scale),
+                    dynamic_jitter_scale=float(strict_cfg.dynamic_jitter_scale),
                     hybrid_explore_steps=int(strict_cfg.hybrid_explore_steps),
                     hybrid_rescue_steps=int(strict_cfg.hybrid_rescue_steps),
                     target_acceptance=float(args.target_acceptance),

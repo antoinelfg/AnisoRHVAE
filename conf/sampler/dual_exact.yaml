@@ -1,7 +1,7 @@
-name: volume_riemannian
+name: dual_exact
 script_args:
   sampler_name: volume_riemannian
-  mass_mode: standard
+  mass_mode: dual
   atom_scale: 100.0
   volume_power: 2.0
   radial_prior_weight: 0.1

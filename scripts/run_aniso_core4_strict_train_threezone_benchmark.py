@@ -143,6 +143,20 @@ def _run_command(cmd: list[str], env: dict[str, str]) -> None:
     subprocess.run(cmd, cwd=ROOT, check=True, env=env)
 
 
+def _git_text(args: list[str]) -> str:
+    try:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except Exception as exc:
+        return f"<unavailable: {exc}>"
+    return proc.stdout
+
+
 def _resolve_subset_ns(cfg: dict[str, Any], cli_subset_ns: list[int] | None) -> list[int]:
     if cli_subset_ns:
         return [int(n) for n in cli_subset_ns]
@@ -184,11 +198,19 @@ def run_benchmark(
     run_stamp = dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     benchmark_dir = benchmark_output_root / run_stamp
     benchmark_dir.mkdir(parents=True, exist_ok=True)
+    (benchmark_dir / "resolved_benchmark_config.yaml").write_text(
+        yaml.safe_dump(cfg, sort_keys=False),
+        encoding="utf-8",
+    )
+    (benchmark_dir / "git_commit.txt").write_text(_git_text(["rev-parse", "HEAD"]), encoding="utf-8")
+    (benchmark_dir / "git_status.txt").write_text(_git_text(["status", "--short"]), encoding="utf-8")
 
     default_run_name_template = "aniso_core4_strict_{n_pad}_seed{seed_pad}"
     default_run_id_template = "aniso_core4_strict_{n_pad}_seed{seed_pad}"
 
     rows: list[dict[str, Any]] = []
+    resolved_training_overrides: dict[str, dict[str, Any]] = {}
+    resolved_sampling_args: dict[str, dict[str, Any]] = {}
     for n in subset_values:
         row_started = time.perf_counter()
         n_pad = f"N{int(n):03d}"
@@ -247,6 +269,7 @@ def run_benchmark(
                     training_overrides["wandb_tags"] = tags
                 training_overrides["wandb_name_mode"] = str(wandb_cfg.get("name_mode", "manual"))
                 training_overrides["wandb_run_name"] = run_name
+                resolved_training_overrides[n_pad] = dict(training_overrides)
 
                 train_cmd = [
                     str(python_bin),
@@ -326,6 +349,7 @@ def run_benchmark(
             sampling_args["wandb_job_type"] = str(wandb_cfg.get("job_type", "three_zone_sampling"))
             if wandb_mode:
                 sampling_args["wandb_mode"] = str(wandb_mode)
+            resolved_sampling_args[n_pad] = dict(sampling_args)
 
             sampling_cmd = [str(python_bin), str(sampling_script), *_args_dict_to_cli(sampling_args)]
             row["commands"]["sampling"] = shlex.join(sampling_cmd)
@@ -357,6 +381,14 @@ def run_benchmark(
         "wandb_mode": str(wandb_mode) if wandb_mode else None,
         "rows": rows,
     }
+    (benchmark_dir / "resolved_training_overrides.json").write_text(
+        json.dumps(resolved_training_overrides, indent=2),
+        encoding="utf-8",
+    )
+    (benchmark_dir / "resolved_sampling_args.json").write_text(
+        json.dumps(resolved_sampling_args, indent=2),
+        encoding="utf-8",
+    )
     summary_path = benchmark_dir / "benchmark_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(f"[aniso_core4_strict] benchmark summary: {summary_path}")

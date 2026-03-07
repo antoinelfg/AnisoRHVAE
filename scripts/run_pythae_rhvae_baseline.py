@@ -693,6 +693,8 @@ def train_rhvae_with_logging(
                 new_T = max(1e-6, float(temperature_scale) * suggested)
                 with torch.no_grad():
                     model.temperature.fill_(new_T)
+                    if hasattr(model, "update_physics_parameters"):
+                        model.update_physics_parameters()
                 model._auto_temperature_set = True
                 print(
                     "[RHVAE BASELINE] Auto temperature set: "
@@ -865,6 +867,15 @@ def plot_training_curves(history, output_dir, wandb):
 
 def main():
     import argparse
+    aniso_2d_only_keys = {
+        "atom_power",
+        "void_threshold",
+        "void_decay_scale",
+        "void_decay_power",
+        "radial_stretch",
+        "transition_steepness",
+        "attractor_gamma",
+    }
     geometry_cases = {
         "baseline": {
             "kernel_type": "isotropic",
@@ -925,6 +936,8 @@ def main():
             "attractor_gamma": 7.624554217806352,
             "attractor_k_nearest": 1,
             "attractor_bias_energy": 18.0,
+            "regularization": 0.05,
+            "rhmc_volume_power": 1.0,
             "rhvae_variant": "geometry",
         },
         "physics": {
@@ -1104,7 +1117,23 @@ def main():
     args = parser.parse_args()
 
     if args.geometry_case is not None:
-        preset = geometry_cases[args.geometry_case]
+        preset = dict(geometry_cases[args.geometry_case])
+        if args.geometry_case == "aniso":
+            physics_mode = bool(args.use_physics_init) or int(args.latent_dim) > 2
+            if physics_mode:
+                for key in aniso_2d_only_keys:
+                    preset.pop(key, None)
+                if not args.use_physics_init:
+                    args.use_physics_init = True
+                    print(
+                        "[RHVAE BASELINE] geometry_case=aniso with latent_dim>2: "
+                        "enabling --use_physics_init to avoid 2D-only metric presets."
+                    )
+                print(
+                    "[RHVAE BASELINE] geometry_case=aniso in physics mode: "
+                    "keeping shared anisotropic defaults (including regularization=0.05 and rhmc_volume_power=1.0) "
+                    "and deriving dimension-sensitive geometry from physics."
+                )
         for key, value in preset.items():
             setattr(args, key, value)
         args.use_attractor_value = None
@@ -1323,6 +1352,7 @@ def main():
     
     # Create RHVAE config
     use_geometry = args.kernel_type != "isotropic" or use_attractor or args.rhvae_variant == "geometry"
+    use_physics_init = bool(getattr(args, "use_physics_init", False)) and use_geometry
     config_cls = GeometryRHVAEConfig if use_geometry else RHVAEConfig
     config_kwargs = dict(
         input_dim=(input_dim,),
@@ -1335,20 +1365,14 @@ def main():
     )
     # Pythae RHVAEConfig does not accept n_centroid_candidates; keep config minimal.
     if use_geometry:
-        config_kwargs.update(
+        geometry_kwargs = dict(
             use_attractor=use_attractor,
-            void_threshold=args.void_threshold,
-            void_weight_threshold=args.void_weight_threshold,
             void_decay_type=args.void_decay_type,
-            void_decay_scale=args.void_decay_scale,
-            void_decay_power=args.void_decay_power,
             void_decay_softplus_k=args.void_decay_softplus_k,
             void_eigshape_mode=args.void_eigshape_mode,
             void_eigshape_alpha_min=args.void_eigshape_alpha_min,
             void_eigshape_power=args.void_eigshape_power,
             void_eigshape_eig_floor=args.void_eigshape_eig_floor,
-            radial_stretch=args.radial_stretch,
-            transition_steepness=args.transition_steepness,
             kernel_type=args.kernel_type,
             precision_jitter=args.precision_jitter,
             atom_power=args.atom_power,
@@ -1356,7 +1380,6 @@ def main():
             atom_norm=args.atom_norm,
             attractor_smoothness=args.attractor_smoothness,
             attractor_metric=args.attractor_metric,
-            attractor_gamma=args.attractor_gamma,
             attractor_k_nearest=args.attractor_k_nearest,
             attractor_use_det=args.attractor_use_det,
             attractor_bias_energy=args.attractor_bias_energy,
@@ -1368,7 +1391,24 @@ def main():
             rhmc_adaptive_min_step_scale=args.rhmc_adaptive_min_step_scale,
             atom_scale=args.atom_scale,
         )
-    if getattr(args, "use_physics_init", False) and use_geometry:
+        if use_physics_init:
+            print(
+                "[RHVAE BASELINE] --use_physics_init active: deriving "
+                "void_threshold/attractor_gamma/transition_steepness/void_decay_power/"
+                "void_decay_scale/radial_stretch from (temperature, latent_dim)."
+            )
+        else:
+            geometry_kwargs.update(
+                void_threshold=args.void_threshold,
+                void_weight_threshold=args.void_weight_threshold,
+                void_decay_scale=args.void_decay_scale,
+                void_decay_power=args.void_decay_power,
+                radial_stretch=args.radial_stretch,
+                transition_steepness=args.transition_steepness,
+                attractor_gamma=args.attractor_gamma,
+            )
+        config_kwargs.update(geometry_kwargs)
+    if use_physics_init:
         rhvae_config = config_cls.from_physics(**config_kwargs)
     else:
         rhvae_config = config_cls(**config_kwargs)

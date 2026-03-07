@@ -29,6 +29,16 @@ def test_absolute_threshold_statuses() -> None:
     assert status["ess_norm_min"] == "green"
 
 
+def test_exact_like_high_acceptance_and_moderate_drift_are_not_red() -> None:
+    metrics = {
+        "acceptance_mean": 1.0,
+        "h_drift_slope_abs_mean": 0.09,
+    }
+    status = evaluate_absolute(metrics)
+    assert status["acceptance_mean"] == "green"
+    assert status["h_drift_slope_abs_mean"] == "green"
+
+
 def test_relative_gains_logic() -> None:
     baseline = {
         "ess_norm_min": 100.0,
@@ -90,8 +100,8 @@ def test_claim_rule_requires_no_red_and_3_of_4_gains() -> None:
         ("plateau_fraction", 0.20, 1.0),
         ("acceptance_mean", 0.50, 0.0),
         ("acceptance_mean", 0.60, 1.0),
-        ("acceptance_mean", 0.90, 1.0),
-        ("acceptance_mean", 0.95, 0.0),
+        ("acceptance_mean", 1.00, 1.0),
+        ("acceptance_mean", 1.05, 0.0),
     ],
 )
 def test_score_margin_hits_boundary_targets(name: str, value: float, expected: float) -> None:

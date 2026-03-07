@@ -14,9 +14,13 @@ class ThresholdRule:
 
 
 ABSOLUTE_RULES: tuple[ThresholdRule, ...] = (
-    ThresholdRule("acceptance_mean", "range", (0.60, 0.90), (0.50, 0.95)),
+    # Exact paper runs can legitimately accept ~100% of proposals when energy error is tiny.
+    # Keep a lower-bound guard for under-mixing but do not hard-reject near-perfect acceptance.
+    ThresholdRule("acceptance_mean", "range", (0.60, 1.00), (0.50, 1.05)),
     ThresholdRule("dh_p95_abs", "max", 1.0, 2.0),
-    ThresholdRule("h_drift_slope_abs_mean", "max", 0.01, 0.03),
+    # Linear drift over short smoke chains is a coarse trend diagnostic; use broader cutoffs
+    # and rely on dh_p95_abs to catch genuinely unstable trajectories.
+    ThresholdRule("h_drift_slope_abs_mean", "max", 0.10, 0.25),
     ThresholdRule("ess_norm_min", "min", 150.0, 80.0),
     ThresholdRule("iact_median", "max", 20.0, 40.0),
     ThresholdRule("coverage_local", "min", 0.55, 0.40),

@@ -358,7 +358,7 @@ H(z,\rho)= -\log\pi(z)+\tfrac{1}{2}\rho^\top M^{-1}(z)\rho+\tfrac{1}{2}\log\det 
 $$
 where $M(z)$ is the mass matrix convention.
 
-**Standard convention** (`use_dual_metric=False`, $M=G$):
+**Standard convention** (`mass_mode="standard"`, $M=G$):
 
 $$
 H_{\mathrm{std}}(z,\rho)=
@@ -367,7 +367,7 @@ H_{\mathrm{std}}(z,\rho)=
 +\tfrac{\lambda_r}{2}\|z-c\|^2.
 $$
 
-**Dual convention** (`use_dual_metric=True`, $M=G^{-1}$):
+**Dual convention** (`mass_mode="dual"`, $M=G^{-1}$):
 
 $$
 H_{\mathrm{dual}}(z,\rho)=

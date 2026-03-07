@@ -385,7 +385,7 @@ class VolumeElementRiemannianHMCSampler(RiemannianHMCSampler):
     - standard (M = G):      ρ ~ N(0, G),      dz/dt = G^{-1}ρ
     - dual (M = G^{-1}):     ρ ~ N(0, G^{-1}), dz/dt = Gρ
     where M is the position-dependent mass matrix used by RHMC.
-    Default is the standard convention (`use_dual_metric=False`).
+    Default is the standard convention (`mass_mode="standard"`).
     Optionally adds a radial prior term to enforce a far-field slope:
         log π(z) = (2 * volume_power) * log sqrt(det G^{-1}(z)) - 0.5 * λ ||z - c||^2
     Set radial_prior_weight (λ) > 0 to enable; defaults to 0 (no change).
@@ -404,16 +404,17 @@ class VolumeElementRiemannianHMCSampler(RiemannianHMCSampler):
         volume_power: float = 0.5,
         radial_prior_weight: float = 0.,
         radial_prior_center: torch.Tensor | None = None,
-        use_dual_metric: bool = False,
+        mass_mode: str = "standard",
         enforce_dual_potential_well: bool = True,
         dual_min_volume_power: float = 0.5,
-        adaptive_dual_step: bool = True,
+        adaptive_dual_step: bool = False,
         adaptive_max_dual_displacement: float = 0.75,
         adaptive_min_step_scale: float = 0.05,
         fp_convergence_tol: float = 1e-6,
         fp_log_warnings: bool = True,
         fp_saturation_warn_threshold: float = 0.20,
-        dynamic_jitter_scale: float = 1e-5,
+        dynamic_jitter_scale: float = 0.0,
+        use_dual_metric: bool | None = None,
     ):
         super().__init__(
             model,
@@ -431,7 +432,9 @@ class VolumeElementRiemannianHMCSampler(RiemannianHMCSampler):
         self.volume_power = float(volume_power)
         self.radial_prior_weight = float(radial_prior_weight)
         self.radial_prior_center = radial_prior_center
-        self.use_dual_metric = bool(use_dual_metric)
+        if use_dual_metric is not None:
+            mass_mode = "dual" if bool(use_dual_metric) else "standard"
+        self.mass_mode = self._normalize_mass_mode(mass_mode)
         self.enforce_dual_potential_well = bool(enforce_dual_potential_well)
         self.dual_min_volume_power = float(dual_min_volume_power)
         self.adaptive_dual_step = bool(adaptive_dual_step)
@@ -443,13 +446,13 @@ class VolumeElementRiemannianHMCSampler(RiemannianHMCSampler):
         self.dynamic_jitter_scale = float(dynamic_jitter_scale)
 
         if (
-            self.use_dual_metric
+            self.mass_mode == "dual"
             and self.enforce_dual_potential_well
             and self.radial_prior_weight <= 0.0
             and self.volume_power <= (self.dual_min_volume_power + 1e-8)
         ):
             raise ValueError(
-                "Invalid dual RHMC configuration: use_dual_metric=True with volume_power <= 0.5 "
+                "Invalid dual RHMC configuration: mass_mode='dual' with volume_power <= 0.5 "
                 "and radial_prior_weight <= 0 cancels the potential well. "
                 "Set volume_power > 0.5 (e.g., 1.0) or enable a positive radial prior."
             )
@@ -493,6 +496,13 @@ class VolumeElementRiemannianHMCSampler(RiemannianHMCSampler):
 
         self.grad_func = _grad
         self._reset_runtime_diagnostics()
+
+    @staticmethod
+    def _normalize_mass_mode(mass_mode: str) -> str:
+        mode = str(mass_mode).strip().lower()
+        if mode not in {"standard", "dual"}:
+            raise ValueError("mass_mode must be 'standard' or 'dual'")
+        return mode
 
     def _reset_runtime_diagnostics(self) -> None:
         self._fp_stats = {
@@ -733,23 +743,12 @@ class VolumeElementRiemannianHMCSampler(RiemannianHMCSampler):
         """Return (M, M_inv, log_det_M) based on convention."""
         G = self.model.G(z)
         G_inv = self.model.G_inv(z)
-        
-        if self.use_dual_metric == "zone_aware":
-            centroids = self.model.centroids_tens.to(z.device)
-            diff_eucl = centroids.unsqueeze(0) - z.unsqueeze(1)
-            min_dists_eucl = self.model._min_euclidean_distance(diff_eucl)
-            alpha = self.model._compute_alpha(min_dists_eucl).view(-1, 1, 1)
-            
-            M = (1.0 - alpha) * G + alpha * G_inv
-            M_inv = torch.linalg.inv(M)
-            log_det_M = torch.linalg.slogdet(M).logabsdet
-            return M, M_inv, log_det_M
-            
-        if self.use_dual_metric is True:
+
+        if self.mass_mode == "dual":
             # Dual: M = G^{-1}, M^{-1} = G
             log_det_M = torch.linalg.slogdet(G_inv).logabsdet
             return G_inv, G, log_det_M
-            
+
         # Standard: M = G, M^{-1} = G^{-1}
         log_det_M = torch.linalg.slogdet(G).logabsdet
         return G, G_inv, log_det_M

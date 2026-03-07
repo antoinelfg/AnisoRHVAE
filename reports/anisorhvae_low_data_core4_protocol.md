@@ -95,30 +95,26 @@ Note:
 
 For geometry-isolation comparisons:
 - `sampler_name = volume_riemannian`
-- `use_dual_metric = true`
+- `mass_mode = dual`
 - `volume_power = 2.0`
 - `n_lf = 10`
-- `eps_lf = 0.03`
+- `eps_lf = 0.05`
 - `fp_steps = 15`
 - `fp_damping = 0.72`
 - `momentum_persist = 0.0`
-- `adaptive_dual_step = true`
-- `adaptive_max_dual_displacement = 0.07`
-- `adaptive_min_step_scale = 0.05`
+- `adaptive_dual_step = false`
+- `dynamic_jitter_scale = 0.0`
 
 Bias ablation:
-- `radial_prior_weight in {0.0, 0.08}`
+- `radial_prior_weight in {0.0, 0.1}`
 
 Operational note:
-- The strict settings above are the default parity settings for scientific isolation.
-- A tuned operational setting that worked well on the ellipse-trained baseline uses:
-  - `radial_prior_weight = 0.1`
-  - `adaptive_max_dual_displacement = 0.09`
-  - all other RHMC parameters unchanged.
+- The strict settings above are the paper-facing exact parity settings for scientific isolation.
+- Any run with `adaptive_dual_step = true` or `dynamic_jitter_scale > 0` belongs to the appendix/engineering track (`dual_safe`), not the main exact tables.
 
 ## 4.4 Ellipse operational command (validated)
 
-The following command is a validated "works well" setup for the ellipse baseline metric:
+The following command is an appendix-only `dual_safe` operating point for the ellipse baseline metric:
 
 ```bash
 python scripts/quick/visualize_rhmc_three_zones_real_metric.py \
@@ -129,7 +125,7 @@ python scripts/quick/visualize_rhmc_three_zones_real_metric.py \
   --volume_power 2.0 \
   --steps 70 \
   --n_lf_inner 10 \
-  --eps 0.03 \
+  --eps 0.05 \
   --eps_jitter 0.0 \
   --n_lf_jitter 0 \
   --fp_steps 15 \
@@ -147,16 +143,17 @@ python scripts/quick/visualize_rhmc_three_zones_real_metric.py \
   --void_eigshape_alpha_min 0.8 \
   --void_eigshape_power -1.2 \
   --void_eigshape_eig_floor 1e-8 \
-  --use_dual_metric \
+  --mass_mode dual \
   --adaptive_dual_step \
   --adaptive_max_dual_displacement 0.09 \
-  --adaptive_min_step_scale 0.05
+  --adaptive_min_step_scale 0.05 \
+  --dynamic_jitter_scale 1e-5
 ```
 
 Interpretation:
 - This is a tuned operating point for this specific metric and data manifold.
-- It is not the unbiased geometry setting (because `radial_prior_weight > 0`).
-- It should be reported separately from the strict unbiased ablation.
+- It is not an exact RHMC result because the adaptive dual step is active and dynamic jitter is non-zero.
+- It should be reported separately from the main exact ablations.
 
 
 ## 5) Code-Level Implementation Changes
@@ -174,17 +171,19 @@ These changes are already implemented.
 ## 5.3 `scripts/metric_assessment_suite.py`
 
 Extended `SamplerConfig` with:
-- `use_dual_metric`
+- `mass_mode`
 - `adaptive_dual_step`
 - `adaptive_max_dual_displacement`
 - `adaptive_min_step_scale`
+- `dynamic_jitter_scale`
 
 Added strict CLI flags:
-- `--strict_use_dual_metric`
+- `--strict_mass_mode`
 - `--strict_adaptive_dual_step`
 - `--strict_no_adaptive_dual_step`
 - `--strict_adaptive_max_dual_displacement`
 - `--strict_adaptive_min_step_scale`
+- `--strict_dynamic_jitter_scale`
 
 Propagated these fields through:
 - `sampler_from_config(...)`
@@ -264,19 +263,18 @@ python scripts/metric_assessment_suite.py \
   --profile short \
   --sampling_seeds 13 29 47 \
   --sampler_name volume_riemannian \
-  --strict_use_dual_metric \
+  --strict_mass_mode dual \
   --strict_volume_power 2.0 \
   --strict_n_lf 10 \
-  --strict_eps_lf 0.03 \
+  --strict_eps_lf 0.05 \
   --strict_fp_steps 15 \
   --strict_fp_damping 0.72 \
   --strict_momentum_persist 0.0 \
-  --strict_adaptive_dual_step \
-  --strict_adaptive_max_dual_displacement 0.07 \
-  --strict_adaptive_min_step_scale 0.05 \
-  --strict_radial_prior_weight 0.0 \
+  --strict_no_adaptive_dual_step \
+  --strict_dynamic_jitter_scale 0.0 \
+  --strict_radial_prior_weight 0.1 \
   --run_quality --skip_fid --save_plots \
-  --output_dir results/metric_assessment_aniso4c/N<NNN>/w0
+  --output_dir results/metric_assessment_aniso4c/N<NNN>/w010
 ```
 
 Expected artifacts:
@@ -289,8 +287,8 @@ Expected artifacts:
 ## 6.5 Step 5: Bias ablation
 
 Rerun Step 4 with:
-- `--strict_radial_prior_weight 0.08`
-- output to `.../w008`
+- `--strict_radial_prior_weight 0.0`
+- output to `.../w0`
 
 Compare runs:
 
@@ -315,15 +313,13 @@ python scripts/quick/visualize_rhmc_three_zones_real_metric.py \
   --volume_power 2.0 \
   --steps 70 \
   --n_lf_inner 10 \
-  --eps 0.03 \
+  --eps 0.05 \
   --fp_steps 15 \
   --fp_damping 0.72 \
   --momentum_persist 0.0 \
-  --use_dual_metric \
-  --adaptive_dual_step \
-  --adaptive_max_dual_displacement 0.07 \
-  --adaptive_min_step_scale 0.05 \
-  --radial_prior_weight 0.0 \
+  --mass_mode dual \
+  --dynamic_jitter_scale 0.0 \
+  --radial_prior_weight 0.1 \
   --void_eigshape_mode det_preserving_spectral \
   --void_eigshape_alpha_min 0.8 \
   --void_eigshape_power -1.2 \
@@ -334,7 +330,7 @@ python scripts/quick/visualize_rhmc_three_zones_real_metric.py \
 ```
 
 Repeat with:
-- `--radial_prior_weight 0.08`
+- `--mass_mode standard`
 
 ## 6.7 Optional branch: Ellipse 2D sanity-check track
 
@@ -394,16 +390,15 @@ python scripts/metric_assessment_suite.py \
   --profile short \
   --sampling_seeds 13 29 47 \
   --sampler_name volume_riemannian \
-  --strict_use_dual_metric \
+  --strict_mass_mode dual \
   --strict_volume_power 2.0 \
   --strict_n_lf 10 \
-  --strict_eps_lf 0.03 \
+  --strict_eps_lf 0.05 \
   --strict_fp_steps 15 \
   --strict_fp_damping 0.72 \
   --strict_momentum_persist 0.0 \
-  --strict_adaptive_dual_step \
-  --strict_adaptive_max_dual_displacement 0.09 \
-  --strict_adaptive_min_step_scale 0.05 \
+  --strict_no_adaptive_dual_step \
+  --strict_dynamic_jitter_scale 0.0 \
   --strict_radial_prior_weight 0.1 \
   --run_quality --skip_fid --save_plots \
   --output_dir results/ellipse_2d_metric_assessment_core4
@@ -420,7 +415,7 @@ python scripts/quick/visualize_rhmc_three_zones_real_metric.py \
   --volume_power 2.0 \
   --steps 70 \
   --n_lf_inner 10 \
-  --eps 0.03 \
+  --eps 0.05 \
   --eps_jitter 0.0 \
   --n_lf_jitter 0 \
   --fp_steps 15 \
@@ -438,10 +433,8 @@ python scripts/quick/visualize_rhmc_three_zones_real_metric.py \
   --void_eigshape_alpha_min 0.8 \
   --void_eigshape_power -1.2 \
   --void_eigshape_eig_floor 1e-8 \
-  --use_dual_metric \
-  --adaptive_dual_step \
-  --adaptive_max_dual_displacement 0.09 \
-  --adaptive_min_step_scale 0.05
+  --mass_mode dual \
+  --dynamic_jitter_scale 0.0
 ```
 
 ### 6.7.6 Interpretation boundary for ellipse track
@@ -580,12 +573,11 @@ After running:
 - Inspect `rhvae_metric.pt -> config`.
 
 2. Run one strict dual smoke assessment:
-- `aniso_only`, strict dual/adaptive flags enabled.
+- `aniso_only`, strict dual exact flags enabled.
 - Inspect `protocol_configs.json` for:
-  - `use_dual_metric`
+  - `mass_mode`
   - `adaptive_dual_step`
-  - `adaptive_max_dual_displacement`
-  - `adaptive_min_step_scale`
+  - `dynamic_jitter_scale`
 
 3. Run one three-zone outside-only diagnostic:
 - `near_points=3`, `far_points=3`.

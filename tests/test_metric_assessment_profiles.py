@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 
 import torch
 
@@ -13,6 +14,7 @@ from scripts.metric_assessment_suite import (
     build_model_bilan_rows,
     build_sweep_objectives,
     collect_reference_visuals,
+    parse_args,
     summarize_candidate_ranking,
 )
 
@@ -195,6 +197,43 @@ def test_summarize_candidate_ranking_rejects_red_stability() -> None:
     assert "acceptance_mean" in rank["reject_reasons"]
 
 
+def test_summarize_candidate_ranking_accepts_exact_like_high_acceptance() -> None:
+    rows = [
+        {
+            "protocol": "strict",
+            "model_key": "aniso",
+            "acceptance_mean": 1.0,
+            "dh_p95_abs": 0.002,
+            "h_drift_slope_abs_mean": 0.09,
+            "coverage_local": 0.0,
+            "rescue_rate": 0.0,
+            "median_steps_to_manifold": 5.0,
+            "plateau_fraction": 0.0,
+            "tangent_alignment_mean": 0.80,
+            "rescue_directionality_mean": 0.99,
+            "border_overshoot_index": float("nan"),
+        },
+        {
+            "protocol": "strict",
+            "model_key": "aniso",
+            "acceptance_mean": 1.0,
+            "dh_p95_abs": 0.001,
+            "h_drift_slope_abs_mean": 0.08,
+            "coverage_local": 0.0,
+            "rescue_rate": 0.0,
+            "median_steps_to_manifold": 4.0,
+            "plateau_fraction": 0.0,
+            "tangent_alignment_mean": 0.79,
+            "rescue_directionality_mean": 1.0,
+            "border_overshoot_index": float("nan"),
+        },
+    ]
+    rank = summarize_candidate_ranking(rows, protocol="strict", model_key="aniso")
+    assert rank["hard_reject"] is False
+    assert "acceptance_mean" not in rank["reject_reasons"]
+    assert "h_drift_slope_abs_mean" not in rank["reject_reasons"]
+
+
 def test_build_sweep_objectives_penalizes_missing_or_nonfinite() -> None:
     payload = {"matched": {"aniso": {"metrics": {}, "statuses": {}}}}
     out = build_sweep_objectives(payload, protocol="matched", model_key="aniso")
@@ -259,3 +298,40 @@ def test_build_sweep_objectives_and_ranking_scalars() -> None:
     assert "ranking/matched/aniso/iqr_noise_penalty" in scalars
     assert "sweep/objective_metric_core4_v1" in scalars
     assert "sweep/objective_full_kpi_v1" in scalars
+
+
+def test_parse_args_accepts_strict_mass_mode(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "prog",
+            "--strict_mass_mode",
+            "dual",
+            "--sampling_seeds",
+            "13",
+            "29",
+            "47",
+        ],
+    )
+    args = parse_args()
+    assert args.strict_mass_mode == "dual"
+    assert args.sampler_name == "volume_riemannian"
+
+
+def test_parse_args_deprecated_strict_dual_alias_maps_to_mass_mode(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "prog",
+            "--strict_use_dual_metric",
+            "True",
+            "--sampling_seeds",
+            "13",
+            "29",
+            "47",
+        ],
+    )
+    args = parse_args()
+    assert args.strict_mass_mode == "dual"
