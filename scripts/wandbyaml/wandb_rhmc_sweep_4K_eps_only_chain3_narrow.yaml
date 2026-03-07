@@ -1,0 +1,58 @@
+# Update eps_lf values after coarse sweep:
+# center at eps* and use [eps*-0.004, eps*+0.004] with step 0.0005 (17 points), clipped to [0.001, 0.050].
+program: scripts/rhmc_chain_demo.py
+method: grid
+metric:
+  name: diag/score
+  goal: maximize
+parameters:
+  eps_lf:
+    values:
+      - 0.0280
+      - 0.0285
+      - 0.0290
+      - 0.0295
+      - 0.0300
+      - 0.0305
+      - 0.0310
+      - 0.0315
+      - 0.0320
+      - 0.0325
+      - 0.0330
+      - 0.0335
+      - 0.0340
+      - 0.0345
+      - 0.0350
+      - 0.0355
+      - 0.0360
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - --model_path
+  - outputs/reference_models/4K
+  - --sampler
+  - volume_riemannian
+  - --exact
+  - --diagnostics_only
+  - --skip_energy_maps
+  - --skip_conservation
+  - --device
+  - cuda
+  - --chain_length
+  - "3"
+  - --n_lf
+  - "30"
+  - --fp_steps
+  - "8"
+  - --fp_damping
+  - "0.7129"
+  - --volume_power
+  - "0.8"
+  - --momentum_persist
+  - "0.0"
+  - --score_target_accept
+  - "0.8"
+  - ${args}
+  - --wandb_group
+  - rhmc_eps_only_4K_chain3_narrow

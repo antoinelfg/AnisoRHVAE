@@ -1,0 +1,45 @@
+program: scripts/metric_assessment_suite.py
+method: grid
+metric:
+  name: scorecard/claim_validated
+  goal: maximize
+parameters:
+  baseline_model_path:
+    value: outputs/pythae_rhvae_baseline/2026-02-09_15-04-06
+  ours_model_path:
+    value: outputs/pythae_rhvae_baseline/2026-02-09_18-16-00
+  protocol_profile:
+    values: ["all"]
+  target_acceptance:
+    value: 0.8
+  output_dir:
+    value: results/metric_assessment
+  wandb_group:
+    value: metric_assessment_benchmark
+  wandb_name_mode:
+    value: auto
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - --baseline_model_path
+  - ${baseline_model_path}
+  - --ours_model_path
+  - ${ours_model_path}
+  - --protocol_profile
+  - ${protocol_profile}
+  - --target_acceptance
+  - ${target_acceptance}
+  - --output_dir
+  - ${output_dir}
+  - --run_quality
+  - --skip_fid
+  - --save_plots
+  - --wandb_project
+  - ${env:WANDB_PROJECT}
+  - --wandb_entity
+  - ${env:WANDB_ENTITY}
+  - --wandb_group
+  - ${wandb_group}
+  - --wandb_name_mode
+  - ${wandb_name_mode}

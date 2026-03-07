@@ -76,48 +76,64 @@ class GeometryRHVAEConfig(RHVAEConfig):
     radial_stretch: float = 10.0  # beta
     transition_steepness: float = 5.0
     target_anisotropy: float | None = None
+    void_eigshape_mode: str = "none"  # none | det_preserving_spectral
+    void_eigshape_alpha_min: float = 1.0
+    void_eigshape_power: float = -1.0
+    void_eigshape_eig_floor: float = 1e-8
 
     kernel_type: str = "isotropic"
     precision_jitter: float = 1e-6
     atom_power: float = 1.0
     kernel_power: float = 1.0
     atom_norm: str = "none"
+    atom_scale: float = 1.0
+
+    # RHMC integrator control (training)
+    rhmc_integrator: str = "explicit"  # explicit | implicit
+    rhmc_fp_steps: int = 15
+    rhmc_fp_damping: float = 0.7
+    rhmc_adaptive_dual_step: bool = False
+    rhmc_adaptive_max_dual_displacement: float = 0.05
+    rhmc_adaptive_min_step_scale: float = 0.1
 
     @classmethod
     def from_physics(
         cls,
         *,
         temperature: float,
-        regularization: float,
-        target_anisotropy: float,
-        confidence_threshold: float,
+        latent_dim: int,
         **kwargs,
     ) -> "GeometryRHVAEConfig":
         if temperature <= 0:
             raise ValueError("temperature must be > 0")
-        if confidence_threshold <= 0 or confidence_threshold >= 1:
-            raise ValueError("confidence_threshold must be in (0, 1)")
-        if target_anisotropy <= 1:
-            raise ValueError("target_anisotropy must be > 1")
+        if latent_dim <= 0:
+            raise ValueError("latent_dim must be > 0")
 
         temperature = float(temperature)
-        regularization = float(regularization)
-        target_anisotropy = float(target_anisotropy)
-        confidence_threshold = float(confidence_threshold)
+        latent_dim = int(latent_dim)
 
-        r0 = temperature * math.sqrt(-math.log(confidence_threshold))
-        radial_stretch = regularization * (target_anisotropy - 1.0)
+        import scipy.stats
+
+        sigma = temperature / math.sqrt(2.0)
+        chi2_thresh = scipy.stats.chi2.ppf(0.9973, df=latent_dim)
+        r0 = sigma * math.sqrt(chi2_thresh)
+
+        gamma = 2.0 / (temperature**2)
+        kappa = (2.0 * math.pi) / (temperature * math.sqrt(3.0))
+        p = latent_dim - 0.25
+        s = r0 + gamma
+        beta_long = gamma + (latent_dim / 2.0)
 
         params = {
             "temperature": temperature,
-            "regularization": regularization,
-            "radial_stretch": radial_stretch,
-            "void_weight_threshold": confidence_threshold,
+            "latent_dim": latent_dim,
             "void_threshold": r0 / temperature,
-            "target_anisotropy": target_anisotropy,
-            "void_decay_scale": 1.0,
-            "void_decay_power": 2.0,
-            "void_decay_softplus_k": 5.0,
+            "attractor_gamma": gamma,
+            "transition_steepness": kappa,
+            "void_decay_power": p,
+            "void_decay_scale": s,
+            "radial_stretch": beta_long,
+            "void_weight_threshold": -1.0,
         }
         params.update(kwargs)
         return cls(**params)
@@ -128,6 +144,9 @@ class GeometryRHVAE(RHVAE):
 
     def __init__(self, model_config: GeometryRHVAEConfig, **kwargs):
         super().__init__(model_config, **kwargs)
+        self.rhmc_integrator = str(model_config.rhmc_integrator).lower()
+        self.rhmc_fp_steps = int(model_config.rhmc_fp_steps)
+        self.rhmc_fp_damping = float(model_config.rhmc_fp_damping)
         self.use_attractor = bool(model_config.use_attractor)
         self.attractor_metric = str(model_config.attractor_metric).lower()
         self.attractor_gamma = float(model_config.attractor_gamma)
@@ -142,6 +161,27 @@ class GeometryRHVAE(RHVAE):
         self.void_decay_softplus_k = float(model_config.void_decay_softplus_k)
         self.radial_stretch = float(model_config.radial_stretch)
         self.transition_steepness = float(model_config.transition_steepness)
+        self.void_eigshape_mode = str(
+            getattr(model_config, "void_eigshape_mode", "none")
+        ).lower()
+        self.void_eigshape_alpha_min = float(
+            getattr(model_config, "void_eigshape_alpha_min", 1.0)
+        )
+        self.void_eigshape_power = float(
+            getattr(model_config, "void_eigshape_power", -1.0)
+        )
+        self.void_eigshape_eig_floor = float(
+            getattr(model_config, "void_eigshape_eig_floor", 1e-8)
+        )
+        self.rhmc_adaptive_dual_step = bool(
+            getattr(model_config, "rhmc_adaptive_dual_step", False)
+        )
+        self.rhmc_adaptive_max_dual_displacement = float(
+            getattr(model_config, "rhmc_adaptive_max_dual_displacement", 0.05)
+        )
+        self.rhmc_adaptive_min_step_scale = float(
+            getattr(model_config, "rhmc_adaptive_min_step_scale", 0.1)
+        )
         self.target_anisotropy = (
             None
             if model_config.target_anisotropy is None
@@ -152,6 +192,7 @@ class GeometryRHVAE(RHVAE):
         self.atom_power = float(model_config.atom_power)
         self.kernel_power = float(model_config.kernel_power)
         self.atom_norm = str(model_config.atom_norm).lower()
+        self.atom_scale = float(model_config.atom_scale)
         self.attractor_smoothness = str(
             getattr(model_config, "attractor_smoothness", "soft")
         ).lower()
@@ -169,8 +210,18 @@ class GeometryRHVAE(RHVAE):
             raise ValueError("atom_norm must be 'none', 'trace', or 'det'")
         if self.void_decay_type not in {"none", "invquad"}:
             raise ValueError("void_decay_type must be 'none' or 'invquad'")
+        if self.void_eigshape_mode not in {"none", "det_preserving_spectral"}:
+            raise ValueError(
+                "void_eigshape_mode must be 'none' or 'det_preserving_spectral'"
+            )
         if self.void_weight_threshold > 0 and self.void_weight_threshold >= 1:
             raise ValueError("void_weight_threshold must be in (0, 1)")
+        if not (0.0 <= self.void_eigshape_alpha_min <= 1.0):
+            raise ValueError("void_eigshape_alpha_min must be in [0, 1]")
+        if self.void_eigshape_eig_floor <= 0:
+            raise ValueError("void_eigshape_eig_floor must be > 0")
+        if not math.isfinite(self.void_eigshape_power):
+            raise ValueError("void_eigshape_power must be finite")
         if self.void_decay_type != "none":
             if self.void_decay_scale <= 0:
                 raise ValueError("void_decay_scale must be > 0")
@@ -183,6 +234,33 @@ class GeometryRHVAE(RHVAE):
             self._update_attractor_precisions(self.M_tens)
         self._refresh_metric_hooks()
 
+    def update_physics_parameters(self) -> None:
+        """Dynamically recompute theoretically derived geometry equations when temperature shifts."""
+        if not hasattr(self, "temperature"):
+            return
+            
+        import scipy.stats
+        temperature = float(self.temperature.detach().cpu().item())
+        latent_dim = int(self.latent_dim)
+        
+        sigma = temperature / math.sqrt(2.0)
+        chi2_thresh = scipy.stats.chi2.ppf(0.9973, df=latent_dim)
+        r0 = sigma * math.sqrt(chi2_thresh)
+
+        gamma = 2.0 / (temperature**2)
+        kappa = (2.0 * math.pi) / (temperature * math.sqrt(3.0))
+        p = latent_dim - 0.25
+        s = r0 + gamma
+        beta_long = gamma + (latent_dim / 2.0)
+
+        self.void_threshold = r0 / temperature
+        self.attractor_gamma = gamma
+        self.transition_steepness = kappa
+        self.void_decay_power = p
+        self.void_decay_scale = s
+        self.radial_stretch = beta_long
+        self.void_weight_threshold = -1.0
+
     def _refresh_metric_hooks(self) -> None:
         if self.use_attractor or self.kernel_type != "isotropic":
             self.G_inv = self._compute_inverse_metric_at_z
@@ -190,6 +268,21 @@ class GeometryRHVAE(RHVAE):
         else:
             self.G = create_metric(self)
             self.G_inv = create_inverse_metric(self)
+
+    @property
+    def device(self) -> torch.device:
+        """Return the device of the model parameters."""
+        if hasattr(self, '_device') and self._device is not None:
+            return self._device
+        try:
+            return next(self.parameters()).device
+        except StopIteration:
+            return torch.device('cpu')
+    
+    @device.setter
+    def device(self, value):
+        """Allow setting device (for compatibility with base class)."""
+        self._device = value
 
     def set_atoms(self, atoms: torch.Tensor) -> None:
         """Overwrite metric atoms (M_tens) in memory."""
@@ -320,6 +413,41 @@ class GeometryRHVAE(RHVAE):
         eye = torch.eye(self.latent_dim, device=z.device, dtype=z.dtype).unsqueeze(0)
         return beta * radial_uu_t + self.lbd.to(device=z.device, dtype=z.dtype) * eye
 
+    @staticmethod
+    def _det_preserving_eigshape(
+        mats: torch.Tensor,
+        power: float,
+        eig_floor: float,
+    ) -> torch.Tensor:
+        """Reshape eigenvalues while preserving determinant per matrix.
+
+        λ'_i = g * (λ_i / g)^s with g = exp(mean(log λ)).
+        """
+        mats = 0.5 * (mats + mats.transpose(-1, -2))
+        evals, evecs = torch.linalg.eigh(mats)
+        evals = torch.clamp(evals, min=float(eig_floor))
+        log_g = torch.mean(torch.log(evals), dim=-1, keepdim=True)
+        g = torch.exp(log_g)
+        evals_new = g * torch.pow(evals / g, float(power))
+        out = evecs @ torch.diag_embed(evals_new) @ evecs.transpose(-1, -2)
+        return 0.5 * (out + out.transpose(-1, -2))
+
+    def _apply_void_eigshape(self, void: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor:
+        """Apply optional determinant-preserving spectral reshaping in high-alpha void."""
+        if self.void_eigshape_mode == "none":
+            return void
+        alpha_flat = alpha.reshape(void.shape[0], -1)[:, 0]
+        mask = alpha_flat >= float(self.void_eigshape_alpha_min)
+        if not bool(mask.any()):
+            return void
+        out = void.clone()
+        out[mask] = self._det_preserving_eigshape(
+            out[mask],
+            power=float(self.void_eigshape_power),
+            eig_floor=float(self.void_eigshape_eig_floor),
+        )
+        return 0.5 * (out + out.transpose(-1, -2))
+
     def _compute_inverse_metric_at_z(self, z: torch.Tensor) -> torch.Tensor:
         base = self._compute_base_inverse_metric(z)
         base = self._stabilize_metric(base)
@@ -342,13 +470,19 @@ class GeometryRHVAE(RHVAE):
         term_trans = self.lbd.to(device=z.device, dtype=z.dtype) * decay_transverse * eye
         void = term_long + term_trans
 
-        alpha = self._compute_alpha(min_dists_eucl).view(-1, 1, 1)
+        alpha = self._compute_alpha(min_dists_eucl)
+        void = self._apply_void_eigshape(void, alpha)
+        alpha = alpha.view(-1, 1, 1)
         blended = (1.0 - alpha) * base + alpha * void
         return self._stabilize_metric(blended)
 
     def _compute_metric_at_z(self, z: torch.Tensor) -> torch.Tensor:
-        g_inv = self._compute_inverse_metric_at_z(z)
-        return torch.linalg.inv(g_inv)
+        try:
+            g_inv = self._compute_inverse_metric_at_z(z)
+            return torch.linalg.inv(g_inv)
+        except (torch.linalg.LinAlgError, ValueError):
+            # Return a non-finite tensor to trigger the sampler's fallback
+            return torch.full((z.shape[0], self.latent_dim, self.latent_dim), float('nan'), device=z.device, dtype=z.dtype)
 
     def _kernel_dists(self, diff: torch.Tensor, prec: torch.Tensor | None) -> torch.Tensor:
         if self.kernel_type == "isotropic":
@@ -394,6 +528,9 @@ class GeometryRHVAE(RHVAE):
             logdet = torch.log(evals_cov).sum(dim=-1, keepdim=True)
             scale = torch.exp(logdet / float(self.latent_dim)).clamp_min(1e-12)
             evals_cov = evals_cov / scale
+
+        # Apply global atom scale
+        evals_cov = evals_cov * float(self.atom_scale)
 
         cov_shaped = evecs @ torch.diag_embed(evals_cov) @ evecs.transpose(-1, -2)
         cov_shaped = 0.5 * (cov_shaped + cov_shaped.transpose(-1, -2))
@@ -470,7 +607,9 @@ class GeometryRHVAE(RHVAE):
         term_trans = self.lbd.to(device=z.device, dtype=z.dtype) * decay_transverse * eye
         void = term_long + term_trans
 
-        alpha = self._compute_alpha(min_dists_eucl).view(-1, 1, 1)
+        alpha = self._compute_alpha(min_dists_eucl)
+        void = self._apply_void_eigshape(void, alpha)
+        alpha = alpha.view(-1, 1, 1)
         blended = (1.0 - alpha) * base + alpha * void
         return self._stabilize_metric(blended)
 
@@ -510,6 +649,112 @@ class GeometryRHVAE(RHVAE):
         r0 = self._compute_r0(min_dists)
         return torch.sigmoid((min_dists - r0) * self.transition_steepness)
 
+    def _metric_quantities(
+        self,
+        z: torch.Tensor,
+        mu: torch.Tensor | None = None,
+        M: torch.Tensor | None = None,
+        training: bool = False,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if training and mu is not None and M is not None:
+            G_inv = self._compute_training_inverse_metric(z, mu, M)
+        else:
+            G_inv = self.G_inv(z)
+        logabsdet = torch.linalg.slogdet(G_inv).logabsdet
+        G_log_det = -logabsdet
+        return G_inv, G_log_det
+
+    def _grad_z_hamiltonian(
+        self,
+        recon_x: torch.Tensor,
+        x: torch.Tensor,
+        z: torch.Tensor,
+        rho: torch.Tensor,
+        mu: torch.Tensor | None = None,
+        M: torch.Tensor | None = None,
+        training: bool = False,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        z_req = z if z.requires_grad else z.clone().detach().requires_grad_(True)
+        if recon_x is None:
+            recon_x = self.decoder(z_req)["reconstruction"]
+        G_inv, G_log_det = self._metric_quantities(z_req, mu, M, training=training)
+        H = self._hamiltonian(recon_x, x, z_req, rho, G_inv, G_log_det)
+        grad = torch.autograd.grad(
+            H.sum(), z_req, create_graph=self.training, retain_graph=True
+        )[0]
+        return grad, z_req, G_inv, G_log_det
+
+    def _generalized_leapfrog_implicit(
+        self,
+        recon_x: torch.Tensor,
+        x: torch.Tensor,
+        z: torch.Tensor,
+        rho: torch.Tensor,
+        mu: torch.Tensor | None = None,
+        M: torch.Tensor | None = None,
+        training: bool = False,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        eps = float(self.eps_lf)
+        steps = max(1, int(self.rhmc_fp_steps))
+        damping = float(self.rhmc_fp_damping)
+        adaptive = bool(self.rhmc_adaptive_dual_step)
+        max_disp = float(self.rhmc_adaptive_max_dual_displacement)
+        min_scale = float(self.rhmc_adaptive_min_step_scale)
+
+        def _explicit_fallback() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+            G_inv, G_log_det = self._metric_quantities(z, mu, M, training=training)
+            rho_ = self._leap_step_1(recon_x, x, z, rho, G_inv, G_log_det)
+            z_new = self._leap_step_2(recon_x, x, z, rho_, G_inv, G_log_det)
+            recon_new = self.decoder(z_new)["reconstruction"]
+            G_inv_new, G_log_det_new = self._metric_quantities(z_new, mu, M, training=training)
+            rho_new = self._leap_step_3(recon_new, x, z_new, rho_, G_inv_new, G_log_det_new)
+            return z_new, rho_new, G_inv_new, G_log_det_new
+
+        # (A) Implicit half-step for momentum via fixed-point iterations
+        rho_half = rho
+        for _ in range(steps):
+            grad_z, _, _, _ = self._grad_z_hamiltonian(
+                None, x, z, rho_half, mu, M, training=training
+            )
+            if not torch.isfinite(grad_z).all():
+                return _explicit_fallback()
+            rho_update = rho - 0.5 * eps * grad_z
+            rho_half = (1.0 - damping) * rho_half + damping * rho_update
+
+        # (B) Implicit full-step for position via fixed-point iterations
+        z_new = z
+        eps_scale = 1.0
+        if adaptive:
+            # Predict movement at original eps
+            G_inv_z, _ = self._metric_quantities(z, mu, M, training=training)
+            v_init = torch.einsum("bij,bj->bi", G_inv_z, rho_half)
+            # Rough displacement estimate: delta_z approx eps * G_inv * rho
+            # For Standard metric, v can be huge.
+            disp = torch.norm(v_init, dim=-1) * eps
+            # scale eps down if disp > max_disp
+            scale = torch.clamp(max_disp / (disp + 1e-9), min=min_scale, max=1.0)
+            eps_scale = scale.min().item()
+            eps = eps * eps_scale
+
+        for _ in range(steps):
+            G_inv_z, _ = self._metric_quantities(z, mu, M, training=training)
+            G_inv_new, _ = self._metric_quantities(z_new, mu, M, training=training)
+            v0 = torch.einsum("bij,bj->bi", G_inv_z, rho_half)
+            v1 = torch.einsum("bij,bj->bi", G_inv_new, rho_half)
+            z_update = z + 0.5 * eps * (v0 + v1)
+            z_new = (1.0 - damping) * z_new + damping * z_update
+            if not torch.isfinite(z_new).all():
+                return _explicit_fallback()
+
+        # (C) Final momentum half-step at z_new
+        grad_z_new, z_req, G_inv_new, G_log_det_new = self._grad_z_hamiltonian(
+            None, x, z_new, rho_half, mu, M, training=training
+        )
+        if not torch.isfinite(grad_z_new).all():
+            return _explicit_fallback()
+        rho_new = rho_half - 0.5 * eps * grad_z_new
+        return z_req, rho_new, G_inv_new, G_log_det_new
+
     def forward(self, inputs, **kwargs):
         x = inputs["data"]
 
@@ -520,6 +765,7 @@ class GeometryRHVAE(RHVAE):
         z0, eps0 = self._sample_gauss(mu, std)
 
         z = z0
+        M: torch.Tensor | None = None
 
         if self.training:
             L = self.metric(x)["L"]
@@ -543,23 +789,39 @@ class GeometryRHVAE(RHVAE):
 
         recon_x = self.decoder(z)["reconstruction"]
 
+        use_implicit = self.rhmc_integrator == "implicit"
+
         for k in range(self.n_lf):
-            rho_ = self._leap_step_1(recon_x, x, z, rho, G_inv, G_log_det)
-            z = self._leap_step_2(recon_x, x, z, rho_, G_inv, G_log_det)
-            recon_x = self.decoder(z)["reconstruction"]
-
-            if self.training:
-                G_inv = self._compute_training_inverse_metric(z, mu, M)
+            if use_implicit:
+                z, rho, G_inv, G_log_det = self._generalized_leapfrog_implicit(
+                    recon_x,
+                    x,
+                    z,
+                    rho,
+                    mu=mu,
+                    M=M,
+                    training=self.training,
+                )
+                recon_x = self.decoder(z)["reconstruction"]
             else:
-                G = self.G(z)
-                G_inv = self.G_inv(z)
+                rho_ = self._leap_step_1(recon_x, x, z, rho, G_inv, G_log_det)
+                z = self._leap_step_2(recon_x, x, z, rho_, G_inv, G_log_det)
+                recon_x = self.decoder(z)["reconstruction"]
 
-            sign, logabsdet = torch.linalg.slogdet(G_inv)
-            G_log_det = -logabsdet
+                if self.training:
+                    G_inv = self._compute_training_inverse_metric(z, mu, M)
+                else:
+                    G = self.G(z)
+                    G_inv = self.G_inv(z)
 
-            rho__ = self._leap_step_3(recon_x, x, z, rho_, G_inv, G_log_det)
+                sign, logabsdet = torch.linalg.slogdet(G_inv)
+                G_log_det = -logabsdet
+
+                rho__ = self._leap_step_3(recon_x, x, z, rho_, G_inv, G_log_det)
+                rho = rho__
+
             beta_sqrt = self._tempering(k + 1, self.n_lf)
-            rho = (beta_sqrt_old / beta_sqrt) * rho__
+            rho = (beta_sqrt_old / beta_sqrt) * rho
             beta_sqrt_old = beta_sqrt
 
         loss = self.loss_function(

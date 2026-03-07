@@ -42,6 +42,7 @@ from datetime import datetime
 from pythae.models.rhvae import RHVAE, RHVAEConfig  # pyright: ignore[reportMissingImports]
 from src.models.rhvae_geometry import GeometryRHVAE, GeometryRHVAEConfig
 from scripts.analyze_metric_full import run_analysis
+from scripts.sampling_diagnostics import run_sampling_diagnostics
 from torch.utils.data import DataLoader, TensorDataset  # pyright: ignore[reportMissingImports]
 from tqdm import tqdm  # pyright: ignore[reportMissingModuleSource]
 
@@ -139,11 +140,25 @@ def _subsample_centroids(model, max_centroids, seed):
     idx = idx.to(centroids.device)
     model.centroids_tens = centroids.index_select(0, idx)
     model.M_tens = M_tens.index_select(0, idx)
+    # Also subsample attractor precisions if they exist and match the old count
+    P_tens = getattr(model, 'P_tens', None)
+    if isinstance(P_tens, torch.Tensor) and P_tens.shape[0] == n_total:
+        model.P_tens = P_tens.index_select(0, idx)
+    elif isinstance(P_tens, torch.Tensor) and P_tens.shape[0] != max_centroids:
+        # Recompute P_tens from the subsampled M_tens
+        if hasattr(model, '_update_attractor_precisions'):
+            model._update_attractor_precisions(model.M_tens)
     print(f"[RHVAE BASELINE] Subsampled centroids: {n_total} → {max_centroids}")
 
 
-def _suggest_temperature(centroids, sample_cap=2000):
-    """Heuristic: median nearest-neighbor distance."""
+def _suggest_temperature(centroids, sample_cap=2000, stat="median_nn"):
+    """Centroid-distance heuristic for RHVAE temperature.
+    
+    The temperature T controls the Gaussian kernel width via exp(-d²/T²).
+    We compute a candidate from centroid distances, then enforce a floor
+    based on the latent spread to prevent sub-diffraction kernel widths
+    that cause extreme metric gradients and NaN in the RHMC sampler.
+    """
     if not isinstance(centroids, torch.Tensor) or centroids.shape[0] < 2:
         return None
     c = centroids.detach().cpu()
@@ -151,12 +166,61 @@ def _suggest_temperature(centroids, sample_cap=2000):
         g = torch.Generator().manual_seed(0)
         idx = torch.randperm(c.shape[0], generator=g)[:sample_cap]
         c = c.index_select(0, idx)
+
+    # Compute a principled temperature floor: Silverman-like lower bound.
+    # For N centroids in D dimensions, the minimum sensible bandwidth is
+    # sigma * (4/(D+2))^(1/(D+4)) * N^(-1/(D+4)).
+    # This prevents the kernel from becoming a delta function.
+    N_pts = float(c.shape[0])
+    D_dim = float(c.shape[1])
+    latent_std = float(c.std(dim=0).mean().item())
+    silverman_floor = latent_std * ((4.0 / (D_dim + 2.0)) ** (1.0 / (D_dim + 4.0))) * (N_pts ** (-1.0 / (D_dim + 4.0)))
+
+    if stat == "silverman":
+        return silverman_floor
+
     dists = torch.cdist(c, c)
+    if stat == "median_pairwise":
+        triu_idx = torch.triu_indices(dists.shape[0], dists.shape[1], offset=1)
+        pairwise_dists = dists[triu_idx[0], triu_idx[1]]
+        if pairwise_dists.numel() == 0:
+            return None
+        candidate = float(pairwise_dists.median().item())
+        return max(candidate, silverman_floor)
+
     dists.fill_diagonal_(float("inf"))
+    if stat == "mean_pairwise":
+        finite = dists[torch.isfinite(dists)]
+        if finite.numel() == 0:
+            return None
+        candidate = float(finite.mean().item())
+        return max(candidate, silverman_floor)
+        
+    if stat.startswith("mean_knn_"):
+        k = int(stat.split("_")[-1])
+        # Ensure k is within bounds (if there are fewer than k points, use max possible k)
+        max_k = dists.shape[1] - 1
+        safe_k = min(k, max_k)
+        if safe_k <= 0:
+            return None
+        # sort distances: the 0th element is the 1st neighbor (since diagonal is inf)
+        knn_dists = dists.sort(dim=1).values[:, safe_k - 1]
+        candidate = float(knn_dists.mean().item())
+        if candidate < silverman_floor:
+            print(
+                f"[RHVAE BASELINE] T floor activated: knn_candidate={candidate:.4f} "
+                f"< silverman_floor={silverman_floor:.4f}, using floor"
+            )
+        return max(candidate, silverman_floor)
+
     nn = dists.min(dim=1).values
     if nn.numel() == 0:
         return None
-    return float(nn.median().item())
+    if stat == "mean_nn":
+        candidate = float(nn.mean().item())
+    else:
+        candidate = float(nn.median().item())
+    return max(candidate, silverman_floor)
 
 
 def visualize_reconstructions(model, data, epoch, output_dir, wandb, device, n_samples=8):
@@ -173,8 +237,10 @@ def visualize_reconstructions(model, data, epoch, output_dir, wandb, device, n_s
         model_output = model(model_input)
         recon = model_output.recon_x.detach()
     
-    # Reshape to images (assuming flattened 64x64)
-    img_size = 64
+    # Reshape to images (assuming flattened square images)
+    input_dim = samples.shape[1]
+    import math
+    img_size = int(math.sqrt(input_dim))
     samples_img = samples.detach().view(n_samples, 1, img_size, img_size).cpu()
     recon_img = recon.view(n_samples, 1, img_size, img_size).cpu()
     
@@ -283,7 +349,12 @@ def visualize_metric_field(model, epoch, output_dir, wandb, device, grid_res=40)
     grid_pts = np.stack([X.ravel(), Y.ravel()], axis=1)
     
     z_grid = torch.tensor(grid_pts, dtype=torch.float32, device=device)
-    
+    if model.latent_dim > 2:
+        pad = torch.zeros(z_grid.shape[0], model.latent_dim - 2, device=device)
+        z_grid = torch.cat([z_grid, pad], dim=1)
+    elif model.latent_dim < 2:
+        z_grid = z_grid[:, :model.latent_dim]
+            
     # Compute metric
     with torch.no_grad():
         G_grid = model.G(z_grid)
@@ -477,20 +548,33 @@ def train_rhvae_with_logging(
     wandb,
     vis_every=10,
     max_centroids=None,
+    target_n_centroids=None,
     centroid_seed=42,
     auto_temperature=False,
+    auto_temperature_stat="median_nn",
+    auto_temperature_every=0,
     temperature_scale=1.0,
 ):
     """Training loop with full logging and visualization."""
     model = model.to(device)
     model.train()
-    
+
     train_dataset = TensorDataset(train_data)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-    
+    n_train = int(len(train_dataset))
+    if n_train <= 0:
+        raise RuntimeError("Empty training dataset after frame extraction; cannot train RHVAE.")
+    effective_batch_size = int(min(max(1, int(batch_size)), n_train))
+    if effective_batch_size != int(batch_size):
+        print(
+            "[RHVAE BASELINE] Adjusting batch_size for low-data regime: "
+            f"requested={int(batch_size)} -> effective={effective_batch_size} (train_samples={n_train})"
+        )
+    # Keep the last (possibly small) batch so low-data regimes still produce updates.
+    train_loader = DataLoader(train_dataset, batch_size=effective_batch_size, shuffle=True, drop_last=False)
+
     val_dataset = TensorDataset(val_data) if val_data is not None else None
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False) if val_dataset else None
-    
+    val_loader = DataLoader(val_dataset, batch_size=effective_batch_size, shuffle=False) if val_dataset else None
+
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10, factor=0.5)
     
@@ -586,16 +670,36 @@ def train_rhvae_with_logging(
         if hasattr(model, 'update'):
             with torch.no_grad():
                 model.update()
-        _subsample_centroids(model, max_centroids, centroid_seed)
-        if auto_temperature and not getattr(model, "_auto_temperature_set", False):
+        # If max_centroids is not set but auto_temperature is active,
+        # cap with the requested n_centroids budget (fallback: model config).
+        effective_max_centroids = max_centroids
+        if effective_max_centroids is None and auto_temperature:
+            if target_n_centroids is not None and int(target_n_centroids) > 0:
+                effective_max_centroids = int(target_n_centroids)
+            else:
+                effective_max_centroids = getattr(model.model_config, 'n_centroids', None)
+        _subsample_centroids(model, effective_max_centroids, centroid_seed)
+        if auto_temperature:
+            if int(auto_temperature_every) <= 0:
+                should_update_temp = not getattr(model, "_auto_temperature_set", False)
+            else:
+                should_update_temp = (epoch % max(1, int(auto_temperature_every))) == 0
+        else:
+            should_update_temp = False
+        if should_update_temp:
             centroids_now = _get_centroids_tensor(model)
-            suggested = _suggest_temperature(centroids_now)
+            suggested = _suggest_temperature(centroids_now, stat=auto_temperature_stat)
             if suggested is not None:
                 new_T = max(1e-6, float(temperature_scale) * suggested)
                 with torch.no_grad():
                     model.temperature.fill_(new_T)
+                    if hasattr(model, "update_physics_parameters"):
+                        model.update_physics_parameters()
                 model._auto_temperature_set = True
-                print(f"[RHVAE BASELINE] Auto temperature set: T={new_T:.4f} (median NN={suggested:.4f})")
+                print(
+                    "[RHVAE BASELINE] Auto temperature set: "
+                    f"T={new_T:.4f} (stat={auto_temperature_stat}, base={suggested:.4f})"
+                )
 
         # Validation - RHVAE needs gradients for RHMC, so we keep requires_grad
         if val_loader is not None:
@@ -763,6 +867,15 @@ def plot_training_curves(history, output_dir, wandb):
 
 def main():
     import argparse
+    aniso_2d_only_keys = {
+        "atom_power",
+        "void_threshold",
+        "void_decay_scale",
+        "void_decay_power",
+        "radial_stretch",
+        "transition_steepness",
+        "attractor_gamma",
+    }
     geometry_cases = {
         "baseline": {
             "kernel_type": "isotropic",
@@ -802,6 +915,49 @@ def main():
             "atom_norm": "trace",
             "rhvae_variant": "geometry",
         },
+        "aniso": {
+            "kernel_type": "mahalanobis",
+            "atom_norm": "trace",
+            "atom_power": 1.0959864113997024,
+            "kernel_power": 1.0,
+            "precision_jitter": 0.01,
+            "void_threshold": 1.2,
+            "void_weight_threshold": -1.0,
+            "void_decay_type": "invquad",
+            "void_decay_scale": 8.87131893173153,
+            "void_decay_power": 1.7447710342008058,
+            "void_decay_softplus_k": 5.0,
+            "radial_stretch": 9.252860449508804,
+            "transition_steepness": 7.276725930229776,
+            "use_attractor": True,
+            "attractor_smoothness": "soft",
+            "attractor_metric": "mahalanobis",
+            "attractor_use_det": True,
+            "attractor_gamma": 7.624554217806352,
+            "attractor_k_nearest": 1,
+            "attractor_bias_energy": 18.0,
+            "regularization": 0.05,
+            "rhmc_volume_power": 1.0,
+            "rhvae_variant": "geometry",
+        },
+        "physics": {
+            "kernel_type": "mahalanobis",
+            "atom_norm": "trace",
+            "atom_power": 1.0959864113997024,
+            "kernel_power": 1.0,
+            "precision_jitter": 0.01,
+            "void_weight_threshold": -1.0,
+            "void_decay_type": "invquad",
+            "void_decay_softplus_k": 5.0,
+            "use_attractor": True,
+            "attractor_smoothness": "soft",
+            "attractor_metric": "mahalanobis",
+            "attractor_use_det": True,
+            "attractor_k_nearest": 1,
+            "attractor_bias_energy": 18.0,
+            "rhvae_variant": "geometry",
+            "use_physics_init": True,
+        },
     }
     parser = argparse.ArgumentParser()
     parser.add_argument('--latent_dim', type=int, default=2)
@@ -817,6 +973,18 @@ def main():
     parser.add_argument('--max_frames', type=int, default=None)
     parser.add_argument('--max_centroids', type=int, default=None)
     parser.add_argument('--auto_temperature', action='store_true')
+    parser.add_argument(
+        '--auto_temperature_stat',
+        type=str,
+        default='median_nn',
+        choices=['median_nn', 'mean_nn', 'mean_pairwise', 'median_pairwise', 'silverman', 'mean_knn_5'],
+    )
+    parser.add_argument(
+        '--auto_temperature_every',
+        type=int,
+        default=0,
+        help='0 sets temperature once after metric update; >0 updates every N epochs.',
+    )
     parser.add_argument('--temperature_scale', type=float, default=1.0)
     parser.add_argument('--vis_every', type=int, default=10, help='Visualize every N epochs')
     parser.add_argument('--seed', type=int, default=42)
@@ -848,13 +1016,72 @@ def main():
     parser.add_argument('--void_decay_scale', type=float, default=1.0)
     parser.add_argument('--void_decay_power', type=float, default=2.0)
     parser.add_argument('--void_decay_softplus_k', type=float, default=5.0)
+    parser.add_argument(
+        '--void_eigshape_mode',
+        type=str,
+        default='none',
+        choices=['none', 'det_preserving_spectral'],
+        help='Optional determinant-preserving spectral reshaping for void branch.',
+    )
+    # Add dataset argument
+    parser.add_argument(
+        '--dataset',
+        type=str,
+        default='ellipses',
+        help='Which dataset to load (ellipses, rotmnist).',
+    )
+    parser.add_argument(
+        '--void_eigshape_alpha_min',
+        type=float,
+        default=1.0,
+        help='Apply void eigenshape only where alpha >= threshold.',
+    )
+    parser.add_argument('--use_physics_init', action='store_true', help='Use from_physics to derive hyperparameters.')
+    parser.add_argument(
+        '--void_eigshape_power',
+        type=float,
+        default=-1.0,
+        help="Eigenshape exponent s in lambda' = g * (lambda/g)^s.",
+    )
+    parser.add_argument(
+        '--void_eigshape_eig_floor',
+        type=float,
+        default=1e-8,
+        help='Eigenvalue floor used during eigenshape reconstruction.',
+    )
     parser.add_argument('--radial_stretch', type=float, default=10.0)
     parser.add_argument('--transition_steepness', type=float, default=5.0)
     parser.add_argument('--kernel_type', type=str, default='isotropic', choices=['isotropic', 'mahalanobis'])
     parser.add_argument('--precision_jitter', type=float, default=1e-6)
     parser.add_argument('--atom_power', type=float, default=1.0)
     parser.add_argument('--kernel_power', type=float, default=1.0)
-    parser.add_argument('--atom_norm', type=str, default='none', choices=['none', 'trace', 'det'])
+    parser.add_argument('--atom_norm', type=str, default='trace', choices=['none', 'trace', 'det'])
+    parser.add_argument(
+        '--rhmc_integrator',
+        type=str,
+        default='explicit',
+        choices=['explicit', 'implicit'],
+        help='RHMC integrator for training (geometry variant).',
+    )
+    parser.add_argument('--rhmc_fp_steps', type=int, default=6)
+    parser.add_argument('--rhmc_fp_damping', type=float, default=0.5)
+    parser.add_argument('--atom_scale', type=float, default=1.0)
+    parser.add_argument(
+        '--use_dual_metric',
+        nargs='?',
+        const='True',
+        default='False',
+        type=lambda x: (str(x).lower() == 'true') if str(x).lower() in ['true', 'false'] else x,
+    )
+    parser.add_argument('--rhmc_adaptive_dual_step', action='store_true', default=False)
+    parser.add_argument('--rhmc_adaptive_max_dual_displacement', type=float, default=0.5)
+    parser.add_argument('--rhmc_adaptive_min_step_scale', type=float, default=0.05)
+    parser.add_argument('--rhmc_volume_power', type=float, default=2.0)
+    parser.add_argument('--rhmc_radial_prior_weight', type=float, default=0.1)
+    parser.add_argument('--rhmc_momentum_persist', type=float, default=0.0)
+    parser.add_argument('--sampling_mcmc_steps', type=int, default=50)
+    parser.add_argument('--sampling_n_lf', type=int, default=10)
+    parser.add_argument('--sampling_eps_lf', type=float, default=0.03)
     parser.add_argument('--wandb_project', type=str, default='RHVAE-baseline')
     parser.add_argument('--wandb_entity', type=str, default=None)
     parser.add_argument('--wandb_group', type=str, default=None)
@@ -864,10 +1091,49 @@ def main():
     parser.add_argument('--analysis_skip_distortion', action='store_true', help='Skip distortion analysis plots.')
     parser.add_argument('--analysis_far_pairs', type=int, default=0, help='Number of far centroid pairs for analysis geodesics.')
     parser.add_argument('--analysis_random_pairs', type=int, default=8, help='Number of random centroid pairs for analysis geodesics.')
+    parser.add_argument('--skip_analysis', action='store_true', help='Skip metric analysis after training.')
+    parser.add_argument(
+        '--analysis_rhmc_sampler',
+        type=str,
+        default=None,
+        choices=['riemannian', 'geodesic', 'volume', 'volume_riemannian'],
+        help='RHMC sampler for analysis (riemannian, geodesic-uniform, volume-element, or volume_riemannian).',
+    )
+    # Sampling diagnostics arguments
+    parser.add_argument('--skip_sampling_diagnostics', action='store_true', help='Skip sampling diagnostics after training.')
+    parser.add_argument('--sampling_fid_samples', type=int, default=1000, help='Number of samples for FID computation.')
+    parser.add_argument(
+        '--sampling_fid_samplers',
+        type=str,
+        nargs='+',
+        default=None,
+        help='Samplers to evaluate for FID.',
+    )
+    parser.add_argument('--sampling_n_starts', type=int, default=12, help='Number of starting points for multi-start sampling.')
+    parser.add_argument('--sampling_n_interp_pairs', type=int, default=4, help='Number of interpolation pairs.')
+    parser.add_argument('--sampling_quality_samples', type=int, default=500, help='Samples for quality metrics.')
+    parser.add_argument('--sampling_n_chains', type=int, default=4, help='Number of RHMC chains for diagnostics.')
+    parser.add_argument('--sampling_chain_length', type=int, default=100, help='Length of RHMC chains.')
     args = parser.parse_args()
 
     if args.geometry_case is not None:
-        preset = geometry_cases[args.geometry_case]
+        preset = dict(geometry_cases[args.geometry_case])
+        if args.geometry_case == "aniso":
+            physics_mode = bool(args.use_physics_init) or int(args.latent_dim) > 2
+            if physics_mode:
+                for key in aniso_2d_only_keys:
+                    preset.pop(key, None)
+                if not args.use_physics_init:
+                    args.use_physics_init = True
+                    print(
+                        "[RHVAE BASELINE] geometry_case=aniso with latent_dim>2: "
+                        "enabling --use_physics_init to avoid 2D-only metric presets."
+                    )
+                print(
+                    "[RHVAE BASELINE] geometry_case=aniso in physics mode: "
+                    "keeping shared anisotropic defaults (including regularization=0.05 and rhmc_volume_power=1.0) "
+                    "and deriving dimension-sensitive geometry from physics."
+                )
         for key, value in preset.items():
             setattr(args, key, value)
         args.use_attractor_value = None
@@ -893,6 +1159,14 @@ def main():
     if args.use_attractor_value is not None:
         use_attractor_flag = bool(args.use_attractor_value)
     use_attractor = use_attractor_flag or args.rhvae_variant == "attractor"
+    if args.analysis_rhmc_sampler is None:
+        args.analysis_rhmc_sampler = "volume"
+
+    if args.sampling_fid_samplers is None:
+        args.sampling_fid_samplers = ["gaussian", "volume"]
+
+    print(f"[RHVAE BASELINE] Analysis RHMC sampler: {args.analysis_rhmc_sampler}")
+    print(f"[RHVAE BASELINE] FID samplers: {args.sampling_fid_samplers}")
 
     # Initialize wandb FIRST (before training)
     wandb = None
@@ -931,6 +1205,10 @@ def main():
                 "frame_mode": args.frame_mode,
                 "max_frames": args.max_frames,
                 "seed": args.seed,
+                "auto_temperature": args.auto_temperature,
+                "auto_temperature_stat": args.auto_temperature_stat,
+                "auto_temperature_every": args.auto_temperature_every,
+                "temperature_scale": args.temperature_scale,
                 "rhvae_variant": args.rhvae_variant,
                 "use_attractor": use_attractor,
                 "void_threshold": args.void_threshold,
@@ -939,6 +1217,10 @@ def main():
                 "void_decay_scale": args.void_decay_scale,
                 "void_decay_power": args.void_decay_power,
                 "void_decay_softplus_k": args.void_decay_softplus_k,
+                "void_eigshape_mode": args.void_eigshape_mode,
+                "void_eigshape_alpha_min": args.void_eigshape_alpha_min,
+                "void_eigshape_power": args.void_eigshape_power,
+                "void_eigshape_eig_floor": args.void_eigshape_eig_floor,
                 "radial_stretch": args.radial_stretch,
                 "transition_steepness": args.transition_steepness,
                 "kernel_type": args.kernel_type,
@@ -953,6 +1235,18 @@ def main():
                 "attractor_use_det": args.attractor_use_det,
                 "attractor_bias_energy": args.attractor_bias_energy,
                 "geometry_case": args.geometry_case,
+                "skip_analysis": args.skip_analysis,
+                "analysis_rhmc_sampler": args.analysis_rhmc_sampler,
+                "use_dual_metric": args.use_dual_metric,
+                "rhmc_adaptive_dual_step": args.rhmc_adaptive_dual_step,
+                "rhmc_adaptive_max_dual_displacement": args.rhmc_adaptive_max_dual_displacement,
+                "rhmc_adaptive_min_step_scale": args.rhmc_adaptive_min_step_scale,
+                "rhmc_volume_power": args.rhmc_volume_power,
+                "rhmc_radial_prior_weight": args.rhmc_radial_prior_weight,
+                "rhmc_momentum_persist": args.rhmc_momentum_persist,
+                "sampling_mcmc_steps": args.sampling_mcmc_steps,
+                "sampling_n_lf": args.sampling_n_lf,
+                "sampling_eps_lf": args.sampling_eps_lf,
             }
         )
         print("[RHVAE BASELINE] WandB initialized")
@@ -960,53 +1254,86 @@ def main():
         print(f"[RHVAE BASELINE] WandB init failed: {e}")
         wandb = None
     
-    # Load ellipse data - same config as main experiments
-    print("[RHVAE BASELINE] Loading ellipse data...")
-    from omegaconf import OmegaConf  # pyright: ignore[reportMissingImports]
-    data_config = OmegaConf.create({
-        'num_sequences': args.num_sequences,
-        'seq_len': 8,
-        'sequence_length': 8,
-        'image_size': [64, 64],
-        'batch_size': args.batch_size,
-        'num_workers': 0,
-        'min_radius': 8,
-        'max_radius': 20,
-        'min_eccentricity': 0.0,
-        'max_eccentricity': 0.9,
-        'fix_center': True,
-        'fix_theta': True,
-        'fix_intensity': True,
-        'keep_major_axis_constant': True,
-        'keep_area_constant': False,
-        'outline_only': True,
-        'outline_width': 2,
-        'antialias': True,
-        'supersample_factor': 4,
-        'seed': args.seed,
-        'train_ratio': 0.8,
-        'val_ratio': 0.1,
-        'test_ratio': 0.1,
-    })
-    
-    data_module = EllipseSequenceDataModule(data_config)
-    
-    # Extract frames for train and val
+    # Load data
     frame_mode = args.frame_mode
-    train_data = create_frames_dataset(
-        data_module,
-        'train',
-        frame_mode=frame_mode,
-        max_frames=args.max_frames,
-        seed=args.seed,
-    )
-    val_data = create_frames_dataset(
-        data_module,
-        'val',
-        frame_mode=frame_mode,
-        max_frames=args.max_frames,
-        seed=args.seed + 1,
-    )
+    if getattr(args, "dataset", "ellipses") == "rotmnist":
+        from src.utils.low_data_io import load_split_tensor, load_subset_indices, subset_from_indices
+        print(f"[RHVAE BASELINE] Loading RotMNIST low-data subset: N={args.max_frames if args.max_frames else args.num_sequences}")
+        # Need to dynamically load the prepared rotmnist split
+        # the subset_n is carried over via max_frames in our Hydra translation
+        rotmnist_dir = PROJECT_ROOT / "data" / "processed" / "rotmnist" / "v1"
+        if not rotmnist_dir.exists():
+            import subprocess
+            print("[RHVAE BASELINE] RotMNIST not found. Running preparation script...")
+            subprocess.run([sys.executable, str(PROJECT_ROOT / "scripts" / "prepare_rotmnist_lowdata.py")], check=True)
+            
+        x_train, _ = load_split_tensor(rotmnist_dir, "train")
+        x_val, _ = load_split_tensor(rotmnist_dir, "val")
+        
+        subset_n = args.max_frames if args.max_frames is not None else 50
+        try:
+            indices_dict = load_subset_indices(rotmnist_dir, "train")
+            idx_train = indices_dict[subset_n][str(args.seed)]
+            train_data = subset_from_indices(x_train, idx_train)
+        except Exception as e:
+            print(f"[RHVAE BASELINE] Fallback exact extraction. Error: {e}")
+            g = torch.Generator().manual_seed(args.seed)
+            idx_train = torch.randperm(x_train.size(0), generator=g)[:subset_n]
+            train_data = x_train[idx_train]
+            
+        g_val = torch.Generator().manual_seed(args.seed + 1)
+        # Scale validation set down proportionally
+        val_n = max(1, int(subset_n * 0.2)) 
+        idx_val = torch.randperm(x_val.size(0), generator=g_val)[:val_n]
+        val_data = x_val[idx_val]
+        
+        # RotMNIST is 1x28x28
+        train_data = train_data.view(-1, 1, 28, 28)
+        val_data = val_data.view(-1, 1, 28, 28)
+    else:
+        print("[RHVAE BASELINE] Loading ellipse data...")
+        from omegaconf import OmegaConf  # pyright: ignore[reportMissingImports]
+        data_config = OmegaConf.create({
+            'num_sequences': args.num_sequences,
+            'seq_len': 8,
+            'sequence_length': 8,
+            'image_size': [64, 64],
+            'batch_size': args.batch_size,
+            'num_workers': 0,
+            'min_radius': 8,
+            'max_radius': 20,
+            'min_eccentricity': 0.0,
+            'max_eccentricity': 0.9,
+            'fix_center': True,
+            'fix_theta': True,
+            'fix_intensity': True,
+            'keep_major_axis_constant': True,
+            'keep_area_constant': False,
+            'outline_only': False,
+            'outline_width': 2,
+            'antialias': True,
+            'supersample_factor': 4,
+            'seed': args.seed,
+            'train_ratio': 0.8,
+            'val_ratio': 0.1,
+            'test_ratio': 0.1,
+        })
+        
+        data_module = EllipseSequenceDataModule(data_config)
+        train_data = create_frames_dataset(
+            data_module,
+            'train',
+            frame_mode=frame_mode,
+            max_frames=args.max_frames,
+            seed=args.seed,
+        )
+        val_data = create_frames_dataset(
+            data_module,
+            'val',
+            frame_mode=frame_mode,
+            max_frames=args.max_frames,
+            seed=args.seed + 1,
+        )
     
     # Flatten images for RHVAE (it expects [B, input_dim])
     input_dim = train_data.shape[1] * train_data.shape[2] * train_data.shape[3]
@@ -1017,8 +1344,15 @@ def main():
     if val_flat is not None:
         print(f"[RHVAE BASELINE] Validation data shape: {val_flat.shape}")
     
+    # User Request: Adjust the number of centroids to the number of points natively
+    n_points = train_flat.shape[0]
+    capped_centroids = min(n_points, 500)
+    args.n_centroids = capped_centroids
+    args.max_centroids = capped_centroids
+    
     # Create RHVAE config
     use_geometry = args.kernel_type != "isotropic" or use_attractor or args.rhvae_variant == "geometry"
+    use_physics_init = bool(getattr(args, "use_physics_init", False)) and use_geometry
     config_cls = GeometryRHVAEConfig if use_geometry else RHVAEConfig
     config_kwargs = dict(
         input_dim=(input_dim,),
@@ -1031,16 +1365,14 @@ def main():
     )
     # Pythae RHVAEConfig does not accept n_centroid_candidates; keep config minimal.
     if use_geometry:
-        config_kwargs.update(
+        geometry_kwargs = dict(
             use_attractor=use_attractor,
-            void_threshold=args.void_threshold,
-            void_weight_threshold=args.void_weight_threshold,
             void_decay_type=args.void_decay_type,
-            void_decay_scale=args.void_decay_scale,
-            void_decay_power=args.void_decay_power,
             void_decay_softplus_k=args.void_decay_softplus_k,
-            radial_stretch=args.radial_stretch,
-            transition_steepness=args.transition_steepness,
+            void_eigshape_mode=args.void_eigshape_mode,
+            void_eigshape_alpha_min=args.void_eigshape_alpha_min,
+            void_eigshape_power=args.void_eigshape_power,
+            void_eigshape_eig_floor=args.void_eigshape_eig_floor,
             kernel_type=args.kernel_type,
             precision_jitter=args.precision_jitter,
             atom_power=args.atom_power,
@@ -1048,12 +1380,38 @@ def main():
             atom_norm=args.atom_norm,
             attractor_smoothness=args.attractor_smoothness,
             attractor_metric=args.attractor_metric,
-            attractor_gamma=args.attractor_gamma,
             attractor_k_nearest=args.attractor_k_nearest,
             attractor_use_det=args.attractor_use_det,
             attractor_bias_energy=args.attractor_bias_energy,
+            rhmc_integrator=args.rhmc_integrator,
+            rhmc_fp_steps=args.rhmc_fp_steps,
+            rhmc_fp_damping=args.rhmc_fp_damping,
+            rhmc_adaptive_dual_step=args.rhmc_adaptive_dual_step,
+            rhmc_adaptive_max_dual_displacement=args.rhmc_adaptive_max_dual_displacement,
+            rhmc_adaptive_min_step_scale=args.rhmc_adaptive_min_step_scale,
+            atom_scale=args.atom_scale,
         )
-    rhvae_config = config_cls(**config_kwargs)
+        if use_physics_init:
+            print(
+                "[RHVAE BASELINE] --use_physics_init active: deriving "
+                "void_threshold/attractor_gamma/transition_steepness/void_decay_power/"
+                "void_decay_scale/radial_stretch from (temperature, latent_dim)."
+            )
+        else:
+            geometry_kwargs.update(
+                void_threshold=args.void_threshold,
+                void_weight_threshold=args.void_weight_threshold,
+                void_decay_scale=args.void_decay_scale,
+                void_decay_power=args.void_decay_power,
+                radial_stretch=args.radial_stretch,
+                transition_steepness=args.transition_steepness,
+                attractor_gamma=args.attractor_gamma,
+            )
+        config_kwargs.update(geometry_kwargs)
+    if use_physics_init:
+        rhvae_config = config_cls.from_physics(**config_kwargs)
+    else:
+        rhvae_config = config_cls(**config_kwargs)
 
     print(
         "[RHVAE BASELINE] RHVAE config: "
@@ -1064,7 +1422,57 @@ def main():
 
     # Create model
     model_cls = GeometryRHVAE if use_geometry else RHVAE
-    model = model_cls(rhvae_config)
+    
+    if getattr(args, "dataset", "ellipses") == "rotmnist":
+        from pythae.models.nn import BaseEncoder, BaseDecoder
+        from pythae.models.base.base_utils import ModelOutput
+        import torch.nn as nn
+        
+        class CNNEncoderRotMNIST(BaseEncoder):
+            def __init__(self, config):
+                super().__init__()
+                self.input_dim = config.input_dim
+                self.latent_dim = config.latent_dim
+                self.conv = nn.Sequential(
+                    nn.Conv2d(1, 32, 4, 2, 1), nn.GroupNorm(8, 32), nn.SiLU(),
+                    nn.Conv2d(32, 64, 4, 2, 1), nn.GroupNorm(16, 64), nn.SiLU(),
+                    nn.Conv2d(64, 128, 3, 2, 0), nn.GroupNorm(32, 128), nn.SiLU(),
+                    nn.Flatten()
+                )
+                self.embedding = nn.Linear(128 * 3 * 3, self.latent_dim)
+                self.log_var = nn.Linear(128 * 3 * 3, self.latent_dim)
+                
+            def forward(self, x):
+                out = self.conv(x.view(-1, 1, 28, 28))
+                return ModelOutput(
+                    embedding=self.embedding(out),
+                    log_covariance=self.log_var(out)
+                )
+                
+        class CNNDecoderRotMNIST(BaseDecoder):
+            def __init__(self, config):
+                super().__init__()
+                self.input_dim = config.input_dim
+                self.latent_dim = config.latent_dim
+                self.fc = nn.Sequential(nn.Linear(self.latent_dim, 128 * 3 * 3), nn.SiLU())
+                self.deconv = nn.Sequential(
+                    nn.ConvTranspose2d(128, 64, 3, 2, 0), nn.GroupNorm(16, 64), nn.SiLU(),
+                    nn.ConvTranspose2d(64, 32, 4, 2, 1), nn.GroupNorm(8, 32), nn.SiLU(),
+                    nn.ConvTranspose2d(32, 1, 4, 2, 1), nn.Sigmoid()
+                )
+
+            def forward(self, z):
+                out = self.fc(z).view(-1, 128, 3, 3)
+                out = self.deconv(out)
+                return ModelOutput(reconstruction=out.view((z.shape[0],) + self.input_dim))
+
+        print("[RHVAE BASELINE] Using 3-layer CNN architecture for RotMNIST")
+        encoder = CNNEncoderRotMNIST(rhvae_config)
+        decoder = CNNDecoderRotMNIST(rhvae_config)
+        model = model_cls(rhvae_config, encoder=encoder, decoder=decoder)
+    else:
+        model = model_cls(rhvae_config)
+        
     model = model.to(device)
     
     # Train with full logging!
@@ -1073,8 +1481,11 @@ def main():
         model, train_flat, val_flat, args.epochs, args.batch_size, args.lr, 
         device, output_dir, wandb, vis_every=args.vis_every,
         max_centroids=args.max_centroids,
+        target_n_centroids=args.n_centroids,
         centroid_seed=args.seed,
         auto_temperature=args.auto_temperature,
+        auto_temperature_stat=args.auto_temperature_stat,
+        auto_temperature_every=args.auto_temperature_every,
         temperature_scale=args.temperature_scale,
     )
     
@@ -1116,26 +1527,88 @@ def main():
         torch.save(metric_data, metric_path)
         print(f"[RHVAE BASELINE] Saved metric to: {metric_path}")
         
+        # Save training data for standalone sampling diagnostics
+        train_data_path = output_dir / 'train_data.pt'
+        torch.save({'data': train_flat.cpu(), 'shape': train_data.shape}, train_data_path)
+        print(f"[RHVAE BASELINE] Saved training data to: {train_data_path}")
+        
         if wandb is not None and wandb.run is not None:
             wandb.save(str(metric_path))
-        analysis_dir = output_dir / "analysis_results"
-        support_images = train_data[: min(512, train_data.shape[0])].clone()
-        run_analysis(
-            output_dir,
-            analysis_dir,
-            torch.device(device),
-            wandb_run=wandb.run if wandb is not None and wandb.run is not None else None,
-            skip_distortion=args.analysis_skip_distortion,
-            far_pairs=args.analysis_far_pairs,
-            random_pairs=args.analysis_random_pairs,
-            support_images=support_images,
-            support_max_samples=512,
-        )
+        if args.skip_analysis:
+            print("[RHVAE BASELINE] Skipping metric analysis (--skip_analysis).")
+        else:
+            analysis_dir = output_dir / "analysis_results"
+            support_images = train_data[: min(512, train_data.shape[0])].clone()
+            run_analysis(
+                output_dir,
+                analysis_dir,
+                torch.device(device),
+                wandb_run=wandb.run if wandb is not None and wandb.run is not None else None,
+                skip_distortion=args.analysis_skip_distortion,
+                far_pairs=args.analysis_far_pairs,
+                random_pairs=args.analysis_random_pairs,
+                rhmc_sampler=args.analysis_rhmc_sampler,
+                support_images=support_images,
+                support_max_samples=512,
+                use_dual_metric=args.use_dual_metric,
+                adaptive_dual_step=args.rhmc_adaptive_dual_step,
+                adaptive_max_dual_displacement=args.rhmc_adaptive_max_dual_displacement,
+                adaptive_min_step_scale=args.rhmc_adaptive_min_step_scale,
+                rhmc_mcmc_steps=args.sampling_mcmc_steps,
+                rhmc_n_lf=args.sampling_n_lf,
+                rhmc_eps_lf=args.sampling_eps_lf,
+                rhmc_beta_zero=1.0,
+                rhmc_volume_power=args.rhmc_volume_power,
+                rhmc_radial_prior_weight=args.rhmc_radial_prior_weight,
+                rhmc_momentum_persist=args.rhmc_momentum_persist,
+                rhmc_fp_steps=args.rhmc_fp_steps,
+                rhmc_fp_damping=args.rhmc_fp_damping,
+            )
+        
+    # Save model (before diagnostics so standalone runs can also load it)
+    model_save_path = output_dir / 'rhvae_model.pt'
+    torch.save(model.state_dict(), model_save_path)
+    print(f"[RHVAE BASELINE] Saved model to: {model_save_path}")
     
-    # Save model
-    model_path = output_dir / 'rhvae_model.pt'
-    torch.save(model.state_dict(), model_path)
-    print(f"[RHVAE BASELINE] Saved model to: {model_path}")
+    # Run sampling diagnostics (FID, interpolation, multi-start, quality metrics)
+    if not args.skip_sampling_diagnostics:
+        print("[RHVAE BASELINE] Running sampling diagnostics...")
+        sampling_results = run_sampling_diagnostics(
+            model_path=output_dir,
+            real_data=train_flat,
+            output_dir=output_dir / "sampling_diagnostics",
+            device=torch.device(device),
+            wandb_run=wandb.run if wandb is not None and wandb.run is not None else None,
+            model=model,  # Pass model directly to avoid reloading
+            run_fid=True,
+            fid_samples=args.sampling_fid_samples,
+            fid_samplers=args.sampling_fid_samplers,
+            run_multi_start=True,
+            n_starts=args.sampling_n_starts,
+            multi_start_sampler=args.analysis_rhmc_sampler,
+            run_interpolation=True,
+            n_interp_pairs=args.sampling_n_interp_pairs,
+            run_quality=True,
+            quality_samples=args.sampling_quality_samples,
+            quality_samplers=args.sampling_fid_samplers,
+            do_rhmc_diagnostics=True,
+            n_chains=args.sampling_n_chains,
+            chain_length=args.sampling_chain_length,
+            rhmc_sampler=args.analysis_rhmc_sampler,
+            mcmc_steps=args.sampling_mcmc_steps,
+            n_lf=args.sampling_n_lf,
+            eps_lf=args.sampling_eps_lf,
+            use_dual_metric=args.use_dual_metric,
+            adaptive_dual_step=args.rhmc_adaptive_dual_step,
+            adaptive_max_dual_displacement=args.rhmc_adaptive_max_dual_displacement,
+            adaptive_min_step_scale=args.rhmc_adaptive_min_step_scale,
+            volume_power=args.rhmc_volume_power,
+            radial_prior_weight=args.rhmc_radial_prior_weight,
+            momentum_persist=args.rhmc_momentum_persist,
+            fp_steps=args.rhmc_fp_steps,
+            fp_damping=args.rhmc_fp_damping,
+        )
+        print("[RHVAE BASELINE] Sampling diagnostics complete.")
     
     # Save training history
     history_path = output_dir / 'training_history.pt'

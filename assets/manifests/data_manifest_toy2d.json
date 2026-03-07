@@ -1,0 +1,71 @@
+{
+  "created_at": "2026-02-16T09:31:04Z",
+  "datasets": [
+    {
+      "dataset_id": "toy2d_moons_v1",
+      "files": [
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/toy2d/moons_v1/train.pt",
+          "relative_path": "data/processed/toy2d/moons_v1/train.pt",
+          "sha256": "45c06e3f7be61cdf7638156079c28ffc47d7fc6cc9185b546a8e04a2cffe7751",
+          "size_bytes": 33813
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/toy2d/moons_v1/val.pt",
+          "relative_path": "data/processed/toy2d/moons_v1/val.pt",
+          "sha256": "b50029053e19485d6f5d590c82f0e2c80bba1f6bd6e2969e2305b128ada16dac",
+          "size_bytes": 8197
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/toy2d/moons_v1/test.pt",
+          "relative_path": "data/processed/toy2d/moons_v1/test.pt",
+          "sha256": "a74af89f23ace15a160032853e2b9b27080e7403ab9d7e6886ee17c350d54a41",
+          "size_bytes": 8205
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/toy2d/moons_v1/metadata.json",
+          "relative_path": "data/processed/toy2d/moons_v1/metadata.json",
+          "sha256": "80924bd5af15596f5c02603782628a72c9cbf7ff46e77f84e4728345b607b7b0",
+          "size_bytes": 3069
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/toy2d/moons_v1/overview.png",
+          "relative_path": "data/processed/toy2d/moons_v1/overview.png",
+          "sha256": "8406e7b9345f60de3d8536734b945e49a3bd06df5732c4bf0098ce69956d4ef9",
+          "size_bytes": 196529
+        }
+      ],
+      "processed_dir": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/toy2d/moons_v1",
+      "split_definition": {
+        "circles_factor": 0.5,
+        "dataset": "moons",
+        "noise": 0.08,
+        "num_classes": 2,
+        "ring_radius": 2.0,
+        "ring_std": 0.18,
+        "split_seed": 13,
+        "standardize": true,
+        "test_size": 400,
+        "train_size": 2000,
+        "val_size": 400
+      },
+      "status": "ready",
+      "subset_definition": {
+        "stratified": true,
+        "subset_count": 15,
+        "subset_ns": [
+          50,
+          100,
+          500
+        ],
+        "subset_seeds": [
+          13,
+          29,
+          47,
+          71,
+          89
+        ]
+      }
+    }
+  ]
+}

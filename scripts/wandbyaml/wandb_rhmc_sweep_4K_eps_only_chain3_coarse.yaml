@@ -1,0 +1,59 @@
+program: scripts/rhmc_chain_demo.py
+method: grid
+metric:
+  name: diag/score
+  goal: maximize
+parameters:
+  eps_lf:
+    values:
+      - 0.002
+      - 0.004
+      - 0.006
+      - 0.008
+      - 0.010
+      - 0.012
+      - 0.014
+      - 0.016
+      - 0.018
+      - 0.020
+      - 0.022
+      - 0.024
+      - 0.026
+      - 0.028
+      - 0.030
+      - 0.032
+      - 0.034
+      - 0.036
+      - 0.038
+      - 0.040
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - --model_path
+  - outputs/reference_models/4K
+  - --sampler
+  - volume_riemannian
+  - --exact
+  - --diagnostics_only
+  - --skip_energy_maps
+  - --skip_conservation
+  - --device
+  - cuda
+  - --chain_length
+  - "3"
+  - --n_lf
+  - "30"
+  - --fp_steps
+  - "8"
+  - --fp_damping
+  - "0.7129"
+  - --volume_power
+  - "0.8"
+  - --momentum_persist
+  - "0.0"
+  - --score_target_accept
+  - "0.8"
+  - ${args}
+  - --wandb_group
+  - rhmc_eps_only_4K_chain3_coarse

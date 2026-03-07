@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import sys
+from typing import Any
+
+from omegaconf import OmegaConf  # pyright: ignore[reportMissingImports]
+
+
+def _value_to_cli(key: str, value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, bool):
+        return [f"--{key}"] if value else []
+    if isinstance(value, (list, tuple)):
+        if len(value) == 0:
+            return []
+        return [f"--{key}", *[str(item) for item in value]]
+    return [f"--{key}", str(value)]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run baseline script from a YAML config.")
+    parser.add_argument("--config", type=str, required=True, help="Path to a YAML config file.")
+    parser.add_argument(
+        "overrides",
+        nargs="*",
+        help="Override values as key=value (OmegaConf dotlist).",
+    )
+    args = parser.parse_args()
+
+    cfg = OmegaConf.load(args.config)
+    if args.overrides:
+        cfg = OmegaConf.merge(cfg, OmegaConf.from_dotlist(args.overrides))
+
+    cli_args: list[str] = []
+    for key, value in OmegaConf.to_container(cfg, resolve=True).items():
+        cli_args.extend(_value_to_cli(key, value))
+
+    sys.argv = ["run_pythae_rhvae_baseline.py", *cli_args]
+    from run_pythae_rhvae_baseline import main as run_main
+
+    run_main()
+
+
+if __name__ == "__main__":
+    main()

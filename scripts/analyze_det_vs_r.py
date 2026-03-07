@@ -179,21 +179,21 @@ def main() -> None:
 
         base = model._compute_base_inverse_metric(z)
         base = model._stabilize_metric(base)
+        centroids_local = model.centroids_tens.to(z.device)
+        diff_eucl = centroids_local.unsqueeze(0) - z.unsqueeze(1)
+        dists_sq = torch.einsum("bkd,bkd->bk", diff_eucl, diff_eucl)
+        min_dists = torch.sqrt(dists_sq.min(dim=1).values + 1e-10)
         logdet_ginv_base = _logdet_ginv(base)
         logdet_base = -logdet_ginv_base if args.det_target == "g" else logdet_ginv_base
         grad = torch.autograd.grad(logdet_base.sum(), z)[0]
 
         z_det = z.detach()
         with torch.no_grad():
-            diff_eucl = centroids.unsqueeze(0) - z_det.unsqueeze(1)
-            min_dists_eucl = torch.sqrt(
-                (diff_eucl ** 2).sum(dim=-1).min(dim=1).values + 1e-10
-            )
             radial_uu_t = _compute_radial_uu(
                 model,
                 z_det,
             )
-            decay = model._compute_void_decay(min_dists_eucl).view(-1, 1, 1)
+            decay = model._compute_void_decay(min_dists).view(-1, 1, 1)
             beta = (
                 float(args.override_radial_stretch)
                 if args.override_radial_stretch is not None
@@ -206,19 +206,19 @@ def main() -> None:
             logdet_ginv_void = _logdet_ginv(void)
             if args.alpha_override:
                 if args.alpha_tau > 0:
-                    r0 = model.temperature.to(z_det.device) * torch.sqrt(
-                        torch.tensor(-np.log(args.alpha_tau), device=z_det.device)
-                    )
+                    r0 = torch.sqrt(torch.tensor(-np.log(args.alpha_tau), device=z_det.device))
+                    r0 = r0 * model.temperature.to(z_det.device)
                 else:
-                    r0 = model.temperature.to(z_det.device) * model.void_threshold
+                    r0 = torch.tensor(model.void_threshold, device=z_det.device)
+                    r0 = r0 * model.temperature.to(z_det.device)
                 steepness = (
                     float(args.alpha_steepness)
                     if args.alpha_steepness is not None
                     else float(model.transition_steepness)
                 )
-                alpha = torch.sigmoid((min_dists_eucl - r0) * steepness)
+                alpha = torch.sigmoid((min_dists - r0) * steepness)
             else:
-                alpha = model._compute_alpha(min_dists_eucl)
+                alpha = model._compute_alpha(min_dists)
 
             logdet_void = -logdet_ginv_void if args.det_target == "g" else logdet_ginv_void
 

@@ -1,0 +1,25 @@
+defaults:
+  - dataset: rotmnist
+  - model: aniso_core4
+  - sampler: dual_exact
+  - _self_
+
+seed: 13
+wandb:
+  project: anisorhvae-neurips-benchmark
+  entity: null
+  mode: online
+  tags: []
+
+output_root: results/neurips_experiments
+reuse_policy: reuse_latest
+python_bin: python
+
+# --- Optional Global Overrides ---
+latent_dim: null
+auto_temperature: false
+auto_temperature_stat: null
+geometry_case: null
+regularization: null
+skip_training: false
+skip_sampling: false

@@ -1,0 +1,15 @@
+name: standard_exact
+script_args:
+  sampler_name: volume_riemannian
+  mass_mode: standard
+  atom_scale: 100.0
+  volume_power: 2.0
+  radial_prior_weight: 0.1
+  steps: 500
+  n_lf_inner: 10
+  eps: 0.05
+  fp_steps: 15
+  fp_damping: 0.72
+  adaptive_dual_step: false
+  dynamic_jitter_scale: 0.0
+  void_eigshape_mode: none

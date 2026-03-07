@@ -1,0 +1,53 @@
+{
+  "created_at": "2026-02-19T18:00:18Z",
+  "datasets": [
+    {
+      "dataset_id": "ellipses_lowdata_v1",
+      "files": [
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/ellipses_lowdata_v1/train.pt",
+          "relative_path": "data/processed/ellipses_lowdata_v1/train.pt",
+          "sha256": "a286ce3a90b3b9bd86fc662ba373a5ea3e433a45f6892a5cd7b88157a12baed3",
+          "size_bytes": 20983573
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/ellipses_lowdata_v1/val.pt",
+          "relative_path": "data/processed/ellipses_lowdata_v1/val.pt",
+          "sha256": "bdafa621f69f0c2988f304312e6801ab4c6c8cc4f16bdde6ec7d14e9ad517471",
+          "size_bytes": 2624517
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/ellipses_lowdata_v1/test.pt",
+          "relative_path": "data/processed/ellipses_lowdata_v1/test.pt",
+          "sha256": "eb0a27d7ec7dcb51c2768f11ff5f7d1b96b9c6be046336816e259e6200bc4893",
+          "size_bytes": 2624525
+        },
+        {
+          "absolute_path": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/ellipses_lowdata_v1/metadata.json",
+          "relative_path": "data/processed/ellipses_lowdata_v1/metadata.json",
+          "sha256": "217775e46a28b0750f393811df028226f842f04e1852f385e89df2fbee7f955f",
+          "size_bytes": 1479
+        }
+      ],
+      "processed_dir": "/scratch/alaforgu/longitudinal_experiments/AnisoRHVAE/data/processed/ellipses_lowdata_v1",
+      "split_definition": {
+        "frame_mode": "t0",
+        "num_sequences": 1600,
+        "test_size": 160,
+        "train_size": 1280,
+        "val_size": 160
+      },
+      "status": "ready",
+      "subset_definition": {
+        "sampling": "uniform_without_replacement",
+        "subset_count": 1,
+        "subset_ns": [
+          50
+        ],
+        "subset_seeds": [
+          13
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+name: standard_rhmc
+script_args:
+  sampler_name: riemannian
+  mass_mode: standard
+  steps: 500
+  n_lf_inner: 10
+  eps: 0.05
+  fp_steps: 15
+  fp_damping: 0.72
+  adaptive_dual_step: false
+  dynamic_jitter_scale: 0.0
